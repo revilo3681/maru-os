@@ -1,0 +1,6 @@
+{
+  "name": "MARU OS",
+  "description": "MARU OS — Sistema Operativo Cognitivo con alma. Un compañero vivo que te conoce, reacciona al entorno y te acompaña con 7 agentes.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

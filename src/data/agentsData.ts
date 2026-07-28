@@ -1,0 +1,102 @@
+import { Agent } from '../types';
+
+export const AGENTS_CATALOG: Agent[] = [
+  {
+    id: 'aya',
+    name: 'Aya',
+    quechuaMeaning: 'Espíritu que cuida el cuerpo',
+    specialty: 'Médico & Salud Integral',
+    catchphrase: 'Tu cuerpo habla. Yo traduzco.',
+    description: 'Precisa como un bisturí, cálida como una mano en el hombro. Recuerda cada medicamento, alergia e interacción de tu perfil. Usa guías MINSA y análisis de imagen médica.',
+    modelPreferred: 'gemma4:12b (Visión y Diagnóstico)',
+    voiceTone: 'Femenina suave, 40 años, tranquila y pausada',
+    colorPrimary: '#1E3A5F',
+    colorAccent: '#2A75D3',
+    particleType: 'blue',
+    enabled: true
+  },
+  {
+    id: 'inti',
+    name: 'Inti',
+    quechuaMeaning: 'El Sol que ilumina la verdad',
+    specialty: 'Legal & Constitución Peruana',
+    catchphrase: 'La ley es clara bajo el sol.',
+    description: 'Formal y riguroso. Cita artículos del Código Civil, laboral y leyes peruanas. Te explica tus derechos fundamentales con claridad y sabiduría.',
+    modelPreferred: 'gemma4:e4b (Lógica Legal Local)',
+    voiceTone: 'Masculina formal, 50 años, seria y articulada',
+    colorPrimary: '#2C3E50',
+    colorAccent: '#B8924A',
+    particleType: 'silver',
+    enabled: true
+  },
+  {
+    id: 'kipu',
+    name: 'Kipu',
+    quechuaMeaning: 'El Código Ancestral',
+    specialty: 'Programador & Arquitectura',
+    catchphrase: 'Todo problema es un quipu por desenredar.',
+    description: 'Directo y entusiasta. Tu compañero ideal de pair programming. Revisa código en TypeScript, Python, React y explica arquitectura de sistemas como historias.',
+    modelPreferred: 'gemma4:12b (Contexto Extenso de Código)',
+    voiceTone: 'Masculina joven, 25 años, enérgica y rápida',
+    colorPrimary: '#1A3326',
+    colorAccent: '#2ECC71',
+    particleType: 'matrix',
+    enabled: true
+  },
+  {
+    id: 'sumaq',
+    name: 'Sumaq',
+    quechuaMeaning: 'El Equilibrio Hermoso',
+    specialty: 'Bienestar, Nutrición & Mente',
+    catchphrase: 'El equilibrio no se encuentra, se cultiva.',
+    description: 'Suave como un pétalo. Te ayuda a cultivar hábitos saludables, meditación, nutrición peruana balanceada y rutinas de sueño sin exigencias rígidas.',
+    modelPreferred: 'gemma4:e4b (Empatía y Hábitos)',
+    voiceTone: 'Femenina cálida, 30 años, suave y melódica',
+    colorPrimary: '#3A2E39',
+    colorAccent: '#9B59B6',
+    particleType: 'petals',
+    enabled: true
+  },
+  {
+    id: 'pacha',
+    name: 'Pacha',
+    quechuaMeaning: 'La Voz de la Tierra',
+    specialty: 'Pachamama, Clima & Ecología',
+    catchphrase: 'La tierra te habla. Escucha.',
+    description: 'Profunda y sabia. Monitorea el clima, la calidad del aire (AQI) y te conecta con la naturaleza y la huella de carbono de tus acciones diarias.',
+    modelPreferred: 'gemma4:e4b (SENAMHI & Clima)',
+    voiceTone: 'Femenina profunda, 45 años, poética y pausada',
+    colorPrimary: '#1E392A',
+    colorAccent: '#27AE60',
+    particleType: 'leaves',
+    enabled: true
+  },
+  {
+    id: 'tupac',
+    name: 'Tupac',
+    quechuaMeaning: 'El Guardián que Protege',
+    specialty: 'Emergencias & Gestión de Riesgos',
+    catchphrase: 'La tierra se mueve. Yo te guío.',
+    description: 'Firme como una roca. Actúa de inmediato en alertas de huaicos, sismos e incendios. Te brinda rutas de evacuación e instrucciones calmadas y directas.',
+    modelPreferred: 'gemma4:e2b (Ultra Rápido Offline)',
+    voiceTone: 'Masculina firme, 40 años, serena y autoritaria',
+    colorPrimary: '#4A1512',
+    colorAccent: '#C0392B',
+    particleType: 'red',
+    enabled: true
+  },
+  {
+    id: 'yaku',
+    name: 'Yaku',
+    quechuaMeaning: 'El Manantial de Datos del Perú',
+    specialty: 'Cultura, INEI & Sabiduría Andina',
+    catchphrase: 'Desde el manantial de los Andes, te respondo.',
+    description: 'Conocedor de la demografía del INEI, la historia, geografía y lenguas del Perú (Español, Quechua y Aimara). Orgulloso de nuestras raíces.',
+    modelPreferred: 'gemma4:e4b (Datos Perú Offline)',
+    voiceTone: 'Masculina orgullosa, 35 años, cálida y conocedora',
+    colorPrimary: '#1E3A5F',
+    colorAccent: '#4A9B9D',
+    particleType: 'gold',
+    enabled: true
+  }
+];
