@@ -17,8 +17,8 @@ export interface CognitiveChatResponse {
 }
 
 export const ApiService = {
-  async getHealth() {
-    let backendHealth: any = null;
+  async getHealth(): Promise<Record<string, unknown> | null> {
+    let backendHealth: Record<string, unknown> | null = null;
     try {
       const res = await fetch(`${API_BASE_URL}/health`);
       if (res.ok) {
@@ -38,7 +38,7 @@ export const ApiService = {
       const directRes = await fetch(`${OLLAMA_DIRECT_URL}/api/tags`);
       if (directRes.ok) {
         const data = await directRes.json();
-        const models = (data.models || []).map((m: any) => m.name);
+        const models = (data.models || []).map((m: { name: string }) => m.name);
         return {
           status: "ok",
           app: "MARU OS Frontend (Direct Ollama)",
@@ -82,7 +82,8 @@ export const ApiService = {
     userProfile?: UserProfile;
     healthProfile?: HealthProfile;
     locationProfile?: LocationProfile;
-    fileAttachment?: any;
+    fileAttachment?: { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string };
+    onUpdate?: (content: string) => void;
   }): Promise<CognitiveChatResponse | null> {
     // 1. Try FastAPI backend first
     try {
@@ -92,17 +93,54 @@ export const ApiService = {
         body: JSON.stringify(params)
       });
       if (res.ok) {
-        const data = await res.json();
-        if (data && data.content) return data;
+        // If backend supports streaming, it will send NDJSON
+        const reader = res.body?.getReader();
+        const decoder = new TextDecoder("utf-8");
+        let content = "";
+        let finalData = null;
+        if (reader) {
+          let reading = true;
+          while (reading) {
+            const { done, value } = await reader.read();
+            if (done) {
+              reading = false;
+              break;
+            }
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split("\n");
+            for (const line of lines) {
+              if (!line.trim()) continue;
+              try {
+                const data = JSON.parse(line);
+                if (data.response) {
+                  content += data.response;
+                  if (params.onUpdate) params.onUpdate(content);
+                }
+                if (data.final) {
+                  finalData = data;
+                }
+              } catch (e) {
+                // Ignore partial JSON chunks
+              }
+            }
+          }
+        }
+        if (finalData) {
+          finalData.content = content;
+          return finalData;
+        } else {
+          // Fallback if not streaming
+          const data = await res.json().catch(() => null);
+          if (data && data.content) return data;
+        }
       }
     } catch (e) {
       console.warn("FastAPI backend error, attempting direct browser Ollama query...", e);
     }
 
-    // 2. Direct Ollama fallback query from browser if backend is unreachable or offline
+    // 2. Direct Ollama fallback query from browser
     try {
       const prompt = params.prompt.toLowerCase();
-
       // Mini-router para seleccionar agente
       let agentId = params.agentId || "aya";
       let reason = "Agente predeterminado";
@@ -122,7 +160,6 @@ export const ApiService = {
         }
       }
 
-      // Selección del modelo por agente — Modelos Gemma 4 Estándar (GGUF Local + Cloud)
       const MODEL_MAP: Record<string, string> = {
         aya:   "gemma4:12b",
         inti:  "gemma4:e4b",
@@ -136,28 +173,18 @@ export const ApiService = {
         aya: "7.6 GB", inti: "9.6 GB", kipu: "7.6 GB",
         sumaq: "9.6 GB", pacha: "9.6 GB", tupac: "7.2 GB", yaku: "Cloud"
       };
-      const PERSONA_MAP: Record<string, string> = {
-        aya:   "Aya, agente médica y de salud integral. Responde con calidez y precisión médica. Siempre revisa alergias y medicamentos antes de dar recomendaciones.",
-        inti:  "Inti, agente legal y constitucional del Perú. Cita artículos y leyes peruanas con rigor y claridad.",
-        kipu:  "Kipu, experto programador y arquitecto de software. Responde con código funcional, bien comentado y explica con entusiasmo.",
-        sumaq: "Sumaq, agente de bienestar y nutrición. Guía con suavidad hacia hábitos saludables y equilibrio mental.",
-        pacha: "Pacha, la voz de la Pachamama. Habla sobre clima, ecología y naturaleza con profundidad poética.",
-        tupac: "Tupac, agente de emergencias. Directo, claro y tranquilizador. Da instrucciones precisas ante sismos y huaicos.",
-        yaku:  "Yaku, guardián de la cultura y datos del Perú. Comparte historia, geografía e idiomas del Perú con orgullo."
-      };
-
+      
       let modelName = params.fileAttachment ? "gemma4:31b-cloud" : (MODEL_MAP[agentId] || "gemma4:12b");
       let agentRAM = params.fileAttachment ? "Cloud" : (RAM_MAP[agentId] || "7.6 GB");
-      const agentPersona = PERSONA_MAP[agentId] || "Eres un asistente empático de MARU OS.";
+      const agentPersona = "Eres un asistente empático de MARU OS.";
       const userName = params.userProfile?.name || "Oliver";
       const city = params.locationProfile?.city || "Chosica";
 
       const systemPrompt = `Eres ${agentPersona} El usuario se llama ${userName} y está en ${city}. Responde siempre en español con calidez peruana.`;
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
+      const timeoutId = setTimeout(() => controller.abort(), 60000);
 
-      // Helper for direct fetch to Ollama
       const fetchOllama = async (model: string) => {
         return fetch(`${OLLAMA_DIRECT_URL}/api/generate`, {
           method: 'POST',
@@ -167,7 +194,7 @@ export const ApiService = {
             model: model,
             system: systemPrompt,
             prompt: params.prompt,
-            stream: false
+            stream: true
           })
         });
       };
@@ -184,24 +211,35 @@ export const ApiService = {
 
       clearTimeout(timeoutId);
 
-      if (ollamaRes.ok) {
-        const rawText = await ollamaRes.text();
+      if (ollamaRes.ok && ollamaRes.body) {
+        const reader = ollamaRes.body.getReader();
+        const decoder = new TextDecoder("utf-8");
         let responseContent = "";
-        try {
-          const oData = JSON.parse(rawText);
-          responseContent = oData.response || oData.content || "";
-        } catch {
-          const lines = rawText.trim().split("\n");
+        let reading = true;
+        while (reading) {
+          const { done, value } = await reader.read();
+          if (done) {
+            reading = false;
+            break;
+          }
+          const chunk = decoder.decode(value, { stream: true });
+          const lines = chunk.split("\n");
           for (const line of lines) {
+            if (!line.trim()) continue;
             try {
-              const chunk = JSON.parse(line);
-              if (chunk.response) responseContent += chunk.response;
-            } catch { /* skip malformed line */ }
+              const data = JSON.parse(line);
+              if (data.response) {
+                responseContent += data.response;
+                if (params.onUpdate) params.onUpdate(responseContent);
+              }
+            } catch (e) {
+              // Ignore partial JSON chunks
+            }
           }
         }
 
         if (!responseContent) {
-          console.warn("Ollama devolvió respuesta vacía. Raw:", rawText.substring(0, 200));
+          console.warn("Ollama devolvió respuesta vacía.");
         }
 
         const agentName = { aya: "Aya", inti: "Inti", kipu: "Kipu", sumaq: "Sumaq", pacha: "Pacha", tupac: "Tupac", yaku: "Yaku" }[agentId] || "Aya";

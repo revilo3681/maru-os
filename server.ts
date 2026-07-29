@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import express from "express";
 import path from "path";
 import dotenv from "dotenv";
@@ -112,7 +113,7 @@ app.post("/api/chat", async (req, res) => {
     // Determine Model
     let modelName = "gemma4:e4b";
     let modelRAM = "9.6 GB";
-    let isLocal = true;
+    const isLocal = true;
 
     if (fileAttachment && (fileAttachment.type === "image" || fileAttachment.type === "pdf" || fileAttachment.type === "excel")) {
       modelName = "gemma4:12b";
@@ -159,7 +160,7 @@ app.post("/api/chat", async (req, res) => {
       try {
         const fullPrompt = `${systemPrompt}\n\nContexto Usuario:\n- Nombre: ${userName}\n- Ciudad: ${userCity}\n- Alergias: ${allergies}\n- Medicamentos: ${meds}\n\nMensaje del usuario:\n${prompt}`;
         
-        let contentsParts: any[] = [{ text: fullPrompt }];
+        const contentsParts: any[] = [{ text: fullPrompt }];
 
         if (fileAttachment && fileAttachment.dataBase64) {
           const base64Data = fileAttachment.dataBase64.replace(/^data:image\/\w+;base64,/, "");

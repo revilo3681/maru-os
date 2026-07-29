@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Calendar as CalendarIcon, Clock, Plus, CheckCircle2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
 import { CalendarEvent } from '../../types';
 

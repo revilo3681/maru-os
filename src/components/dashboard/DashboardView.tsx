@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
 import {
-  Sun,
-  CloudRain,
   AlertTriangle,
   Wind,
   MapPin,
   CheckSquare,
   Square,
-  Calendar,
   Send,
   Users,
   HardDrive,
@@ -29,7 +26,7 @@ interface DashboardViewProps {
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   userProfile,
-  healthProfile,
+  healthProfile: _healthProfile,
   locationProfile,
   onNavigateToChat,
   onTriggerEmergency

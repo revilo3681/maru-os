@@ -8,8 +8,7 @@ import {
   KnowledgeNode,
   KnowledgeEdge,
   CalendarEvent,
-  AppSettings,
-  AgentId
+  AppSettings
 } from '../types';
 
 const STORAGE_KEYS = {
@@ -196,6 +195,12 @@ export class StorageService {
     if (settings.ephemeralMode || msg.doNotSave) return;
     const messages = this.getAgentMessages(agentId);
     messages.push(msg);
+    localStorage.setItem(this.agentKey(agentId), JSON.stringify(messages));
+  }
+
+  static saveAgentMessages(agentId: string, messages: ChatMessage[]): void {
+    const settings = this.getSettings();
+    if (settings.ephemeralMode) return;
     localStorage.setItem(this.agentKey(agentId), JSON.stringify(messages));
   }
 

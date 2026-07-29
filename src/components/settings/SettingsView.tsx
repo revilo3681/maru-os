@@ -6,9 +6,7 @@ import {
   KeyRound,
   Download,
   Trash2,
-  Lock,
-  AlertTriangle,
-  CheckCircle2
+  AlertTriangle
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
 import { AppSettings } from '../../types';

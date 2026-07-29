@@ -13,7 +13,8 @@ import {
   CheckCircle2,
   XCircle,
   ToggleLeft,
-  ToggleRight
+  ToggleRight,
+  LogOut
 } from 'lucide-react';
 import { AgentId } from '../../types';
 import { AGENTS_CATALOG } from '../../data/agentsData';
@@ -25,6 +26,7 @@ interface SidebarProps {
   activeAgentId: AgentId;
   onSelectAgent: (id: AgentId) => void;
   isEphemeralMode?: boolean;
+  onLogout: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -32,7 +34,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onSelectTab,
   activeAgentId,
   onSelectAgent,
-  isEphemeralMode = false
+  isEphemeralMode = false,
+  onLogout
 }) => {
   const [ollamaActive, setOllamaActive] = useState<boolean | null>(null);
   const [modelsCount, setModelsCount] = useState<number>(0);
@@ -45,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       if (isMounted) {
         if (health && health.ollamaLocalActive) {
           setOllamaActive(true);
-          setModelsCount(health.localModelsAvailable?.length || 4);
+          setModelsCount((health.localModelsAvailable as unknown[])?.length || 4);
         } else {
           setOllamaActive(false);
         }
@@ -74,9 +77,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div>
         {/* Brand Header */}
         <div className="p-5 border-b border-[#2C3E50]/60 flex items-center gap-3">
-          <div className="w-9 h-9 rounded-full border-2 border-[#4A9B9D] flex items-center justify-center bg-[#1E3A5F] shadow-sm">
-            <span className="text-[#4A9B9D] font-serif font-bold text-lg">丸</span>
-          </div>
+          <img 
+            src="/logo.jpg" 
+            alt="MARU OS Logo" 
+            className="w-10 h-10 rounded-full object-cover border-2 border-[#4A9B9D] shadow-sm shrink-0" 
+          />
           <div>
             <div className="font-serif font-bold text-xl tracking-wide flex items-center gap-1">
               MARU OS
@@ -105,6 +110,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </button>
             );
           })}
+          
+          <button
+            onClick={onLogout}
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-red-400 hover:bg-red-500/20 hover:text-red-300 mt-2 border border-transparent hover:border-red-500/30"
+          >
+            <LogOut size={18} />
+            <span>Cerrar Sesión</span>
+          </button>
         </nav>
 
         {/* Agents Quick Selection */}

@@ -20,9 +20,13 @@ CANDIDATE_URLS = [
     settings.OLLAMA_BASE_URL,
 ]
 
+import asyncio
+import json
+
 class OllamaClient:
     def __init__(self):
         self.active_url: Optional[str] = None
+        self.queue_lock = asyncio.Lock()
 
     async def get_working_url(self) -> Optional[str]:
         if self.active_url:
@@ -62,6 +66,69 @@ class OllamaClient:
             logger.warning(f"Error listando modelos: {e}")
         return []
 
+    async def generate_response_stream(
+        self,
+        model: str,
+        system_prompt: str,
+        user_prompt: str,
+        temperature: float = 0.7
+    ):
+        """
+        Genera respuesta usando un candado (queue) para evitar que peticiones concurrentes
+        crasheen la GPU M4. Y yield los chunks NDJSON.
+        """
+        url = await self.get_working_url()
+        if not url:
+            yield json.dumps({"error": "Ollama no disponible"}).encode('utf-8') + b'\n'
+            return
+
+        models_to_try = [model]
+        if model != "gemma4:31b-cloud":
+            models_to_try.append("gemma4:31b-cloud")
+
+        async with self.queue_lock:
+            for attempt_model in models_to_try:
+                payload = {
+                    "model": attempt_model,
+                    "system": system_prompt,
+                    "prompt": user_prompt,
+                    "temperature": temperature,
+                    "stream": True
+                }
+                try:
+                    async with httpx.AsyncClient(timeout=120.0) as client:
+                        async with client.stream("POST", f"{url}/api/generate", json=payload) as res:
+                            if res.status_code == 200:
+                                async for chunk in res.aiter_lines():
+                                    if chunk.strip():
+                                        yield chunk.encode('utf-8') + b'\n'
+                                        
+                                        # Parse and check if done
+                                        try:
+                                            data = json.loads(chunk)
+                                            if data.get("done"):
+                                                final_payload = {
+                                                    "final": True,
+                                                    "model": attempt_model,
+                                                    "is_local": "cloud" not in attempt_model.lower(),
+                                                    "url_used": url
+                                                }
+                                                yield json.dumps(final_payload).encode('utf-8') + b'\n'
+                                        except:
+                                            pass
+                                return
+                            else:
+                                err = (await res.aread()).decode('utf-8')[:200]
+                                logger.warning(f"❌ {attempt_model} → status {res.status_code}: {err}")
+                                if "mlx runner failed" in err or "unsupported architecture" in err or "500" in str(res.status_code):
+                                    logger.info(f"→ Error, intentando fallback...")
+                                    continue
+                except Exception as e:
+                    logger.error(f"Error con {attempt_model}: {e}")
+                    continue
+
+            yield json.dumps({"error": "Todos los modelos Gemma fallaron"}).encode('utf-8') + b'\n'
+
     async def generate_response(
         self,
         model: str,
@@ -69,56 +136,23 @@ class OllamaClient:
         user_prompt: str,
         temperature: float = 0.7
     ) -> Dict[str, Any]:
-        """
-        Genera respuesta con un modelo Gemma.
-        Si el modelo MLX falla (error de arquitectura), hace fallback automático a gemma4:31b-cloud.
-        """
-        url = await self.get_working_url()
-        if not url:
-            return {"content": "", "done": False, "model": model, "is_local": False,
-                    "error": "Ollama no disponible"}
-
-        # Secuencia de intento: modelo pedido → gemma4:31b-cloud como respaldo
-        models_to_try = [model]
-        if model != "gemma4:31b-cloud":
-            models_to_try.append("gemma4:31b-cloud")
-
-        for attempt_model in models_to_try:
-            payload = {
-                "model": attempt_model,
-                "system": system_prompt,
-                "prompt": user_prompt,
-                "temperature": temperature,
-                "stream": False
-            }
+        """Backward compatibility for single generation."""
+        content = ""
+        final_data = {}
+        async for chunk in self.generate_response_stream(model, system_prompt, user_prompt, temperature):
             try:
-                async with httpx.AsyncClient(timeout=120.0) as client:
-                    res = await client.post(f"{url}/api/generate", json=payload)
-                    if res.status_code == 200:
-                        data = res.json()
-                        content = data.get("response", "").strip()
-                        if content:
-                            is_local = "mlx" in attempt_model.lower()
-                            if attempt_model != model:
-                                logger.info(f"⚠️ {model} falló → usando {attempt_model} como respaldo")
-                            return {
-                                "content": content,
-                                "done": True,
-                                "model": attempt_model,
-                                "is_local": is_local,
-                                "url_used": url
-                            }
-                    else:
-                        err = res.text[:200]
-                        logger.warning(f"❌ {attempt_model} → status {res.status_code}: {err}")
-                        if "mlx runner failed" in err or "unsupported architecture" in err:
-                            logger.info(f"→ Modelo MLX no soportado, intentando fallback...")
-                            continue  # intentar el siguiente
-            except Exception as e:
-                logger.error(f"Error con {attempt_model}: {e}")
-                continue
-
-        return {"content": "", "done": False, "model": model, "is_local": False,
-                "error": "Todos los modelos Gemma fallaron"}
+                data = json.loads(chunk.decode('utf-8'))
+                if "response" in data:
+                    content += data["response"]
+                if "final" in data:
+                    final_data = data
+            except:
+                pass
+        return {
+            "content": content,
+            "done": True,
+            "model": final_data.get("model", model),
+            "is_local": final_data.get("is_local", False)
+        }
 
 ollama_client = OllamaClient()

@@ -55,9 +55,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     <div className="fixed inset-0 z-50 bg-[#1E3A5F]/60 backdrop-blur-md flex items-center justify-center p-4">
       <div className="bg-[#F5F1E8] border border-[#E3DCCB] rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-6">
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-full bg-[#1E3A5F] text-[#4A9B9D] font-serif font-bold text-2xl flex items-center justify-center mx-auto shadow-md">
-            丸
-          </div>
+          <img 
+            src="/logo.jpg" 
+            alt="MARU OS Logo" 
+            className="w-14 h-14 rounded-full object-cover border-2 border-[#4A9B9D] mx-auto shadow-md" 
+          />
           <h2 className="text-2xl font-serif font-bold text-[#1E3A5F]">Iniciar Sesión en MARU OS</h2>
           <p className="text-xs text-[#6B7F8C]">Tus datos nunca salen de este dispositivo.</p>
         </div>

@@ -33,7 +33,7 @@ export function App() {
     if (StorageService.isOnboarded() && currentTab === 'landing') {
       setCurrentTab('dashboard');
     }
-  }, []);
+  }, [currentTab]);
 
   const refreshUserData = () => {
     setUserProfile(StorageService.getProfile());
@@ -58,7 +58,11 @@ export function App() {
     setCurrentTab('landing');
   };
 
-  const handleNavigateToChatWithPrompt = (prompt?: string) => {
+  const handleLogout = () => {
+    setCurrentTab('landing');
+  };
+
+  const _navigateToChat = (_prompt?: string) => {
     setCurrentTab('chat');
   };
 
@@ -93,6 +97,7 @@ export function App() {
             activeAgentId={activeAgentId}
             onSelectAgent={(id) => setActiveAgentId(id)}
             isEphemeralMode={settings.ephemeralMode}
+            onLogout={handleLogout}
           />
 
           <main className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -101,7 +106,7 @@ export function App() {
                 userProfile={userProfile}
                 healthProfile={healthProfile}
                 locationProfile={locationProfile}
-                onNavigateToChat={handleNavigateToChatWithPrompt}
+                onNavigateToChat={_navigateToChat}
                 onTriggerEmergency={() => setIsEmergencyOpen(true)}
               />
             )}

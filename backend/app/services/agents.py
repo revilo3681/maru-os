@@ -110,34 +110,52 @@ AGENTS_METADATA = {
 
 class CognitiveAgentRouter:
     @staticmethod
-    def route_intent(prompt: str, file_attached: bool = False, is_multi_agent: bool = False) -> Dict[str, Any]:
-        """Router cognitivo — modelos Gemma 4 locales y cloud."""
-        p_lower = prompt.lower()
-
-        if any(w in p_lower for w in ["dolor", "fiebre", "síntoma", "médico", "salud", "alergia", "pastilla", "medicina", "comer", "medicament", "hola", "buenas", "¿cómo estás"]):
-            agent_id = "aya"
-            reason = "Salud / bienvenida empática → Aya"
-        elif any(w in p_lower for w in ["ley", "legal", "contrato", "derecho", "norma", "artículo", "demanda", "abogado"]):
-            agent_id = "inti"
-            reason = "Consulta legal → Inti"
-        elif any(w in p_lower for w in ["código", "code", "programa", "bug", "función", "error", "script", "python", "javascript", "typescript", "react", "html", "css", "juego", "game", "deploy", "api"]):
-            agent_id = "kipu"
-            reason = "Código / programación → Kipu"
-        elif any(w in p_lower for w in ["estrés", "meditar", "ansiedad", "hábito", "ejercicio", "dormir", "calma", "bienestar"]):
-            agent_id = "sumaq"
-            reason = "Bienestar / mente → Sumaq"
-        elif any(w in p_lower for w in ["aire", "naturaleza", "bosque", "ecología", "huella", "medio ambiente", "árbol", "clima", "temperatura"]):
-            agent_id = "pacha"
-            reason = "Pachamama / ecología → Pacha"
-        elif any(w in p_lower for w in ["huaico", "sismo", "temblor", "emergencia", "evacuar", "alerta", "terremoto", "desastre"]):
-            agent_id = "tupac"
-            reason = "Emergencia → Tupac (ultra rápido)"
-        elif any(w in p_lower for w in ["perú", "quechua", "inei", "chosica", "cusco", "huaraz", "gastronomía", "historia", "inca"]):
-            agent_id = "yaku"
-            reason = "Cultura / Perú → Yaku"
-        else:
-            agent_id = "aya"
-            reason = "Agente predeterminado → Aya"
+    async def route_intent(prompt: str, file_attached: bool = False, is_multi_agent: bool = False) -> Dict[str, Any]:
+        """Router cognitivo inteligente — usa gemma4:e2b para clasificar el intent."""
+        from app.core.ollama import ollama_client
+        
+        system_prompt = """Eres un Router Cognitivo de MARU OS. Tu única tarea es clasificar la intención del usuario y devolver el ID del agente adecuado. 
+        Solo puedes devolver una de estas palabras (y NADA MÁS):
+        - aya (para temas médicos, salud, medicinas, dolor, bienestar físico)
+        - inti (para leyes, constitución, contratos, legal)
+        - kipu (para código, programación, python, bugs, react)
+        - sumaq (para bienestar emocional, estrés, meditación)
+        - pacha (para clima, ecología, naturaleza)
+        - tupac (para emergencias, sismos, huaicos)
+        - yaku (para cultura peruana, historia, INEI)
+        """
+        
+        # Intentamos usar gemma4:e2b para la clasificación rápida
+        resp = await ollama_client.generate_response("gemma4:e2b", system_prompt, prompt, temperature=0.1)
+        agent_id_raw = resp.get("content", "").strip().lower()
+        
+        agent_id = "aya"
+        reason = "Agente predeterminado"
+        
+        # Validar la respuesta del modelo
+        valid_agents = ["aya", "inti", "kipu", "sumaq", "pacha", "tupac", "yaku"]
+        
+        for valid in valid_agents:
+            if valid in agent_id_raw:
+                agent_id = valid
+                reason = f"Clasificado inteligentemente por gemma4:e2b → {agent_id.capitalize()}"
+                break
+        
+        # Fallback basado en reglas si e2b falla o no devuelve algo válido
+        if reason == "Agente predeterminado":
+            p_lower = prompt.lower()
+            if any(w in p_lower for w in ["dolor", "fiebre", "síntoma", "médico", "salud", "alergia", "pastilla"]):
+                agent_id = "aya"
+                reason = "Fallback reglas: Salud → Aya"
+            elif any(w in p_lower for w in ["ley", "legal", "contrato", "derecho"]):
+                agent_id = "inti"
+                reason = "Fallback reglas: Legal → Inti"
+            elif any(w in p_lower for w in ["código", "code", "programa", "bug", "python", "react"]):
+                agent_id = "kipu"
+                reason = "Fallback reglas: Código → Kipu"
+            elif any(w in p_lower for w in ["sismo", "huaico", "emergencia"]):
+                agent_id = "tupac"
+                reason = "Fallback reglas: Emergencia → Tupac"
 
         agent_info = AGENTS_METADATA[agent_id]
 

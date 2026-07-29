@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Repeat, CheckSquare, Square, Flame, Plus } from 'lucide-react';
+import { CheckSquare, Square, Flame, Plus } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
 import { Habit } from '../../types';
 

@@ -1,12 +1,12 @@
 import React from 'react';
 import { StorageService } from '../../services/storageService';
-import { Brain, Network, Database, Layers, ShieldCheck } from 'lucide-react';
+import { Network, Database, Layers, ShieldCheck } from 'lucide-react';
 
 export const MemoryView: React.FC = () => {
   const { nodes, edges } = StorageService.getKnowledgeGraph();
   const profile = StorageService.getProfile();
-  const health = StorageService.getHealth();
-  const location = StorageService.getLocation();
+  const _health = StorageService.getHealth();
+  const _location = StorageService.getLocation();
 
   return (
     <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[#F5F1E8] text-[#2C3E50]">

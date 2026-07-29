@@ -27,3 +27,92 @@
 ::-webkit-scrollbar-thumb:hover {
   background: #4A9B9D;
 }
+
+@keyframes maru-heartbeat {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 35px rgba(74, 155, 157, 0.35);
+  }
+  50% {
+    transform: scale(1.04);
+    box-shadow: 0 0 60px rgba(74, 155, 157, 0.65);
+  }
+}
+
+@keyframes water-wave-ripple {
+  0% {
+    transform: scale(0.92);
+    opacity: 0.9;
+    border-color: rgba(74, 155, 157, 0.85);
+  }
+  50% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.7);
+    opacity: 0;
+    border-color: rgba(74, 155, 157, 0);
+  }
+}
+
+.animate-maru-heartbeat {
+  animation: maru-heartbeat 3.2s ease-in-out infinite;
+}
+
+.animate-water-wave-1 {
+  animation: water-wave-ripple 3.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite;
+}
+
+.animate-water-wave-2 {
+  animation: water-wave-ripple 3.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 1.2s;
+}
+
+.animate-water-wave-3 {
+  animation: water-wave-ripple 3.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 2.4s;
+}
+
+@keyframes fall-leaf {
+  0% {
+    transform: translateY(-10vh) rotate(0deg) translateX(0);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.8;
+  }
+  50% {
+    transform: translateY(45vh) rotate(180deg) translateX(20px);
+    opacity: 1;
+  }
+  90% {
+    opacity: 0.8;
+  }
+  100% {
+    transform: translateY(110vh) rotate(360deg) translateX(-20px);
+    opacity: 0;
+  }
+}
+
+.animate-falling-leaf {
+  animation: fall-leaf linear infinite;
+}
+
+@keyframes waterfall-flow {
+  0% {
+    transform: translateY(-100%) scaleY(1);
+    opacity: 0;
+  }
+  20% {
+    opacity: 0.7;
+  }
+  80% {
+    opacity: 0.3;
+  }
+  100% {
+    transform: translateY(100%) scaleY(1.5);
+    opacity: 0;
+  }
+}
+
+.animate-waterfall {
+  animation: waterfall-flow linear infinite;
+}

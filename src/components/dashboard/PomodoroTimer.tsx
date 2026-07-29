@@ -10,7 +10,7 @@ export const PomodoroTimer: React.FC = () => {
   const [completedCycles, setCompletedCycles] = useState(StorageService.getPomodoroCycles());
 
   useEffect(() => {
-    let interval: any = null;
+    let interval: ReturnType<typeof setInterval> | null = null;
     if (isRunning) {
       interval = setInterval(() => {
         setSecondsLeft((prev) => {
@@ -32,9 +32,9 @@ export const PomodoroTimer: React.FC = () => {
         });
       }, 1000);
     } else {
-      clearInterval(interval);
+      if (interval) clearInterval(interval);
     }
-    return () => clearInterval(interval);
+    return () => { if (interval) clearInterval(interval); };
   }, [isRunning, mode]);
 
   const toggleTimer = () => setIsRunning(!isRunning);

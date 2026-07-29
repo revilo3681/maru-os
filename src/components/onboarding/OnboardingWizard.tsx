@@ -12,7 +12,6 @@ import {
   ArrowRight,
   ArrowLeft,
   Sparkles,
-  Plus,
   Trash2
 } from 'lucide-react';
 import {

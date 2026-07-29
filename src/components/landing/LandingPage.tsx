@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Enso3DCanvas } from '../canvas/Enso3DCanvas';
-import { ParticleBackground } from '../canvas/ParticleBackground';
-import { Sparkles, Shield, Cpu, ArrowRight, UserCheck } from 'lucide-react';
+import { AmaruBackground } from '../canvas/AmaruBackground';
+import { PeruRegionsCanvas } from '../canvas/PeruRegionsCanvas';
+import { Sparkles, ArrowRight, UserCheck, Mountain, TreePine, Waves } from 'lucide-react';
 
 interface LandingPageProps {
   onStartOnboarding: () => void;
@@ -12,28 +13,50 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
   onOpenLogin
 }) => {
+  const [region, setRegion] = useState<'costa' | 'sierra' | 'selva'>('costa');
+
   return (
-    <div className="relative min-h-screen bg-[#F5F1E8] text-[#2C3E50] overflow-hidden flex flex-col justify-between select-none">
-      {/* Floating Canvas Particles */}
-      <ParticleBackground />
+    <div className="relative min-h-screen bg-[#F5F1E8] text-[#2C3E50] overflow-hidden flex flex-col justify-between select-none transition-colors duration-1000" style={{
+      backgroundColor: region === 'costa' ? '#F5F1E8' : region === 'sierra' ? '#1E293B' : '#1A3326',
+      color: region === 'costa' ? '#2C3E50' : '#F5F1E8'
+    }}>
+      {/* 3D Peru Regions Canvas */}
+      <PeruRegionsCanvas region={region} />
+      
+      {/* Fallback floating Canvas Particles (Amaru theme) */}
+      <div className="opacity-40">
+        <AmaruBackground />
+      </div>
 
       {/* Top Header */}
       <header className="relative z-10 max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between border-b border-[#E3DCCB]/60">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-full border-2 border-[#4A9B9D] flex items-center justify-center bg-[#1E3A5F] shadow-sm">
-            <span className="text-[#4A9B9D] font-serif font-bold text-xl">丸</span>
+          <div className="relative flex items-center justify-center">
+            {/* Clock-like outer ring that ripples */}
+            <div className="absolute inset-0 rounded-full border-2 border-[#4A9B9D]/30 animate-water-wave-1"></div>
+            <div className="absolute inset-0 rounded-full border-2 border-[#B8924A]/20 animate-water-wave-2"></div>
+            <img 
+              src="/logo.jpg" 
+              alt="MARU OS Logo" 
+              className="w-12 h-12 rounded-full object-cover border-2 border-[#4A9B9D] shadow-md shrink-0 relative z-10 animate-maru-heartbeat" 
+            />
           </div>
+
           <div>
-            <span className="font-serif font-bold text-2xl text-[#1E3A5F]">MARU OS</span>
-            <span className="text-xs text-[#4A9B9D] italic font-serif ml-2">con alma.</span>
+            <span className={`font-serif font-bold text-2xl ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>MARU OS</span>
+            <span className={`text-xs italic font-serif ml-2 ${region === 'costa' ? 'text-[#4A9B9D]' : 'text-[#A3E4D7]'}`}>con alma.</span>
           </div>
         </div>
 
         <div className="flex items-center gap-4 text-xs font-mono">
-          <span className="hidden sm:inline text-[#6B7F8C]">OJO DE AGUA · MEMORY · REASONING</span>
+          <span className={`hidden sm:inline ${region === 'costa' ? 'text-[#6B7F8C]' : 'text-white/60'}`}>OJO DE AGUA · MEMORY · REASONING</span>
           <button
             onClick={onOpenLogin}
-            className="px-4 py-2 border border-[#1E3A5F] text-[#1E3A5F] hover:bg-[#1E3A5F] hover:text-white rounded-xl transition-all shadow-sm font-semibold flex items-center gap-1.5"
+            className={`px-4 py-2 border rounded-xl transition-all shadow-sm font-semibold flex items-center gap-1.5 ${
+              region === 'costa' 
+                ? 'border-[#1E3A5F] text-[#1E3A5F] hover:bg-[#1E3A5F] hover:text-white'
+                : 'border-white text-white hover:bg-white hover:text-[#1E3A5F]'
+            }`}
           >
             <UserCheck size={14} />
             <span>ENTRAR</span>
@@ -44,18 +67,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* Hero Body */}
       <main className="relative z-10 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center flex-1">
         <div className="space-y-6 text-left">
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-[#1E3A5F]/10 text-[#1E3A5F] rounded-full text-xs font-mono border border-[#1E3A5F]/20">
-            <Sparkles size={14} className="text-[#B8924A]" />
+          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
+            region === 'costa' ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/20' : 'bg-white/10 text-white border-white/20'
+          }`}>
+            <Sparkles size={14} className={region === 'costa' ? 'text-[#B8924A]' : 'text-[#A3E4D7]'} />
             <span>SISTEMA OPERATIVO COGNITIVO PARA PERÚ</span>
           </div>
 
-          <h1 className="text-4xl sm:text-6xl font-serif font-bold text-[#1E3A5F] leading-tight">
+          <h1 className={`text-4xl sm:text-6xl font-serif font-bold leading-tight ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>
             El primer <br />
             sistema operativo <br />
-            cognitivo <span className="text-[#4A9B9D] italic font-normal">con alma.</span>
+            cognitivo <span className={`italic font-normal ${region === 'costa' ? 'text-[#4A9B9D]' : 'text-[#A3E4D7]'}`}>con alma.</span>
           </h1>
 
-          <p className="text-base sm:text-lg text-[#6B7F8C] max-w-lg leading-relaxed">
+          <p className={`text-base sm:text-lg max-w-lg leading-relaxed ${region === 'costa' ? 'text-[#6B7F8C]' : 'text-white/80'}`}>
             Un compañero vivo que habita en tu dispositivo. Te conoce, reacciona al clima y huaicos de Chosica, cuida tu salud y razona contigo sin invadir tu privacidad.
           </p>
 
@@ -70,15 +95,32 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
             <button
               onClick={onOpenLogin}
-              className="px-6 py-4 border border-[#E3DCCB] hover:bg-white text-[#2C3E50] rounded-2xl font-medium text-sm transition-colors"
+              className={`px-6 py-4 border rounded-2xl font-medium text-sm transition-colors ${
+                region === 'costa'
+                  ? 'border-[#E3DCCB] hover:bg-white text-[#2C3E50]'
+                  : 'border-white/40 hover:bg-white/10 text-white'
+              }`}
             >
               Ver Dashboard Vivo →
             </button>
           </div>
 
-          <div className="grid grid-cols-3 gap-4 pt-6 border-t border-[#E3DCCB]/60 text-xs font-mono text-[#6B7F8C]">
+          {/* Region Selector */}
+          <div className="flex gap-2 pt-6">
+            <button onClick={() => setRegion('costa')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'costa' ? 'bg-[#4A9B9D] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
+              <Waves size={16} /> COSTA
+            </button>
+            <button onClick={() => setRegion('sierra')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'sierra' ? 'bg-[#B8924A] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
+              <Mountain size={16} /> SIERRA
+            </button>
+            <button onClick={() => setRegion('selva')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'selva' ? 'bg-[#5A8F6B] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
+              <TreePine size={16} /> SELVA
+            </button>
+          </div>
+
+          <div className={`grid grid-cols-3 gap-4 pt-6 border-t text-xs font-mono ${region === 'costa' ? 'border-[#E3DCCB]/60 text-[#6B7F8C]' : 'border-white/20 text-white/60'}`}>
             <div>
-              <div className="font-bold text-[#1E3A5F] text-sm">7 AGENTES</div>
+              <div className={`font-bold text-sm ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>7 AGENTES</div>
               <div>Salud, Leyes, Código, Clima</div>
             </div>
             <div>

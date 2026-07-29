@@ -10,8 +10,10 @@ from app.core.ollama import ollama_client
 from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter
 from app.services.peru_data import PeruDataService
 from app.services.onboarding import AccountService
+from app.services.document_parser import DocumentParserService
 from app.core.graph_store import graph_store
 from app.core.vector_store import vector_store
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +39,14 @@ class VerifySeedRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = "es-PE-CamilaNeural"
+
+# --- Concurrency Queue ---
+user_locks: Dict[str, asyncio.Lock] = {}
+
+def get_user_lock(username: str) -> asyncio.Lock:
+    if username not in user_locks:
+        user_locks[username] = asyncio.Lock()
+    return user_locks[username]
 
 # --- Endpoints ---
 
@@ -111,7 +121,7 @@ async def cognitive_chat(req: ChatRequest):
         ram = agent_info["ram"]
         reason = "Selección manual por el usuario"
     else:
-        route_res = CognitiveAgentRouter.route_intent(req.prompt, file_attached=has_file)
+        route_res = await CognitiveAgentRouter.route_intent(req.prompt, file_attached=has_file)
         agent_id = route_res["agent_id"]
         agent_info = route_res["agent"]
         model_name = route_res["model_name"]
@@ -122,6 +132,8 @@ async def cognitive_chat(req: ChatRequest):
     city = req.locationProfile.get("city", "Chosica") if req.locationProfile else "Chosica"
     allergies = ", ".join(req.healthProfile.get("allergies", ["Maní"])) if req.healthProfile else "Maní"
     meds = ", ".join([f"{m['name']} ({m['dose']})" for m in req.healthProfile.get("currentMedications", [])]) if req.healthProfile and "currentMedications" in req.healthProfile else "Amoxicilina (500mg)"
+
+    user_lock = get_user_lock(user_name)
 
     # 2. Thinking Steps Generation
     thinking_steps = CognitiveAgentRouter.generate_thinking_steps(user_name, city, agent_info["name"], model_name)
@@ -134,46 +146,96 @@ Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].
 Si el usuario pregunta por comidas, medicamentos o salud, valida estrictamente las alergias.
 Responde en idioma Español con calidez humana."""
 
-    # 4. Intent local Ollama query
-    ollama_resp = await ollama_client.generate_response(model_name, system_prompt, req.prompt)
+    # 4. Procesar archivo adjunto (PDF / OCR) si existe
+    extracted_text = ""
+    if has_file and req.fileAttachment.get("dataBase64"):
+        import base64
+        import io
+        
+        file_data = req.fileAttachment["dataBase64"].split(",")[-1]
+        file_bytes = base64.b64decode(file_data)
+        file_type = req.fileAttachment.get("type", "")
+        
+        try:
+            if DocumentParserService.is_pdf(file_type) or file_type == "pdf":
+                extracted_text = await DocumentParserService.parse_pdf(file_bytes)
+            elif DocumentParserService.is_image(file_type) or file_type == "image":
+                extracted_text = await DocumentParserService.parse_image(file_bytes)
+            else:
+                extracted_text = f"[Archivo no soportado: {file_type}]"
+        except Exception as e:
+            logger.error(f"Error procesando adjunto: {e}")
+            extracted_text = f"[Error procesando el archivo: {e}]"
+            
+    # Modify the prompt if text was extracted
+    final_prompt = req.prompt
+    if extracted_text:
+        final_prompt = f"El usuario adjuntó un documento con el siguiente texto extraído:\n\n---\n{extracted_text}\n---\n\nPregunta/Mensaje del usuario: {req.prompt}"
+
+    # 5. Intent local Ollama query
+    import json
     
-    content = ollama_resp.get("content", "")
-    is_local = ollama_resp.get("is_local", False)
+    async def generate():
+        async with user_lock:
+            has_content = False
+            full_content = ""
+            is_local = True
 
-    # Backup Cognitive Local Response Generator if Ollama service is loading
-    if not content:
-        p_lower = req.prompt.lower()
-        if "maní" in p_lower or "comida" in p_lower or "plato" in p_lower or "comer" in p_lower:
-            content = f"¡Hola {user_name}! He verificado tu perfil médico en Neo4j y tienes registrada una alergia severa al MANÍ. Si el plato contiene salsa de maní o frutos secos, con tu medicación actual ({meds}), te recomiendo evitarlo para prevenir anafilaxia.\n\n¿Deseas que te sugiera una alternativa culinaria peruana totalmente segura?"
-        elif "huaico" in p_lower or "sismo" in p_lower or "temblor" in p_lower:
-            content = f"⚠️ Alerta de prevención en {city}:\nNivel de riesgo por huaico: 85% (Alto).\nZona segura recomendada: I.E. 1234 - Nicolás de Piérola (a 500m).\n\nMantén la calma, ten tu mochila de emergencia lista y aléjate del cauce de las quebradas."
-        elif agent_id == "kipu":
-            content = f"""¡Hola {user_name}! Como tu compañero de código en MARU OS, todo problema es un quipu por desenredar.
+            async for chunk in ollama_client.generate_response_stream(model_name, system_prompt, final_prompt):
+                has_content = True
+                try:
+                    data = json.loads(chunk.decode('utf-8'))
+                    if "response" in data:
+                        full_content += data["response"]
+                    if "final" in data:
+                        is_local = data.get("is_local", True)
+                        # When done, add memory
+                        vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
+                        # Add metadata to final chunk
+                        data.update({
+                            "agentId": agent_id,
+                            "agentName": agent_info["name"],
+                            "modelUsed": data.get("model", model_name),
+                            "modelRAM": ram,
+                            "decisionReason": reason,
+                            "thinkingSteps": thinking_steps,
+                            "voice": agent_info["voice"]
+                        })
+                        yield json.dumps(data).encode('utf-8') + b'\n'
+                        return
+                except:
+                    pass
+                yield chunk
 
-```typescript
-// Solución optimizada para React 19 / TypeScript
-export function useCognitiveState<T>(initial: T) {{
-  return React.useState<T>(initial);
-}}
-```"""
-        else:
-            content = f"{user_name}, he procesado tu mensaje con atención desde el manantial cognitivo de MARU OS en {city}. Estoy aquí para guiarte y acompañarte en tu día a día.\n\n¿En qué más te puedo ayudar hoy?"
+            # Fallback si Ollama no devuelve nada
+            if not has_content:
+                p_lower = req.prompt.lower()
+                if "maní" in p_lower or "comida" in p_lower or "plato" in p_lower or "comer" in p_lower:
+                    full_content = f"¡Hola {user_name}! He verificado tu perfil médico en Neo4j y tienes registrada una alergia severa al MANÍ. Si el plato contiene salsa de maní o frutos secos, con tu medicación actual ({meds}), te recomiendo evitarlo para prevenir anafilaxia.\n\n¿Deseas que te sugiera una alternativa culinaria peruana totalmente segura?"
+                elif "huaico" in p_lower or "sismo" in p_lower or "temblor" in p_lower:
+                    full_content = f"⚠️ Alerta de prevención en {city}:\nNivel de riesgo por huaico: 85% (Alto).\nZona segura recomendada: I.E. 1234 - Nicolás de Piérola (a 500m).\n\nMantén la calma, ten tu mochila de emergencia lista y aléjate del cauce de las quebradas."
+                elif agent_id == "kipu":
+                    full_content = f"¡Hola {user_name}! Como tu compañero de código en MARU OS, todo problema es un quipu por desenredar.\n\n```typescript\n// Solución optimizada para React 19 / TypeScript\nexport function useCognitiveState<T>(initial: T) {{\n  return React.useState<T>(initial);\n}}\n```"
+                else:
+                    full_content = f"{user_name}, he procesado tu mensaje con atención desde el manantial cognitivo de MARU OS en {city}. Estoy aquí para guiarte y acompañarte en tu día a día.\n\n¿En qué más te puedo ayudar hoy?"
 
-    # Add memory to Qdrant Vector Store
-    vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": content})
+                vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
+                
+                fallback_response = {
+                    "response": full_content,
+                    "final": True,
+                    "agentId": agent_id,
+                    "agentName": agent_info["name"],
+                    "modelUsed": "Reglas (Offline)",
+                    "modelRAM": "0 GB",
+                    "is_local": True,
+                    "decisionReason": reason + " (Respuesta de respaldo local)",
+                    "thinkingSteps": thinking_steps,
+                    "voice": agent_info["voice"]
+                }
+                yield json.dumps(fallback_response).encode('utf-8') + b'\n'
 
-    return {
-        "agentId": agent_id,
-        "agentName": agent_info["name"],
-        "modelUsed": model_name,
-        "modelRAM": ram,
-        "isLocal": is_local or True,
-        "decisionReason": reason,
-        "thinkingSteps": thinking_steps,
-        "content": content,
-        "timestamp": "08:30 AM",
-        "voice": agent_info["voice"]
-    }
+    return StreamingResponse(generate(), media_type="application/x-ndjson")
 
 @router.post("/tts")
 async def generate_tts(req: TTSRequest):

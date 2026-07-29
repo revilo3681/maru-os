@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+/* eslint-disable @typescript-eslint/no-explicit-any */
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import {
   Send, Mic, Paperclip, Square, Volume2, VolumeX,
   Trash2, Brain, FileText, Image as ImageIcon, RefreshCw
@@ -8,7 +9,11 @@ import { AGENTS_CATALOG } from '../../data/agentsData';
 import { AudioService } from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
 import { ApiService } from '../../services/apiService';
-
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
+import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
 interface ChatViewProps {
   activeAgentId: AgentId;
   onSelectAgent: (id: AgentId) => void;
@@ -19,7 +24,7 @@ interface ChatViewProps {
 
 export const ChatView: React.FC<ChatViewProps> = ({
   activeAgentId,
-  onSelectAgent,
+  onSelectAgent: _onSelectAgent,
   userProfile,
   healthProfile,
   locationProfile
@@ -34,31 +39,31 @@ export const ChatView: React.FC<ChatViewProps> = ({
   });
 
   const [inputText, setInputText] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingAgents, setGeneratingAgents] = useState<Set<string>>(new Set());
   const [isListening, setIsListening] = useState(false);
   const [attachedFile, setAttachedFile] = useState<FileAttachment | null>(null);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
   const [autoAgent, setAutoAgent] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // Current agent data
   const currentAgent = AGENTS_CATALOG.find((a) => a.id === activeAgentId) || AGENTS_CATALOG[0];
 
   // Messages for the currently active agent
-  const messages = messagesMap[activeAgentId] || [];
+  const messages = useMemo(() => messagesMap[activeAgentId] || [], [messagesMap, activeAgentId]);
 
-  // When switching agents, clear input and stop generation
+  // When switching agents, clear input but DO NOT stop background generation
   useEffect(() => {
     setInputText('');
     setAttachedFile(null);
-    setIsGenerating(false);
   }, [activeAgentId]);
 
   // Auto-scroll to bottom
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages, isGenerating]);
+  }, [messages, generatingAgents]);
 
   const addMessage = useCallback((agentId: string, msg: ChatMessage) => {
     setMessagesMap(prev => {
@@ -119,7 +124,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   // Send message
   const handleSendMessage = async () => {
-    if ((!inputText.trim() && !attachedFile) || isGenerating) return;
+    if ((!inputText.trim() && !attachedFile) || generatingAgents.has(activeAgentId)) return;
 
     const userMsgText = inputText.trim();
     const currentAttachment = attachedFile;
@@ -127,20 +132,35 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     setInputText('');
     setAttachedFile(null);
-    setIsGenerating(true);
+    setGeneratingAgents(prev => new Set(prev).add(targetAgentId));
 
     const userMsg: ChatMessage = {
       id: `msg-usr-${Date.now()}`,
       timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
       sender: 'user',
       content: userMsgText || (currentAttachment ? `[Archivo: ${currentAttachment.name}]` : ''),
-      fileAttachment: currentAttachment || undefined
+      fileAttachment: currentAttachment ? { ...currentAttachment, dataBase64: undefined } : undefined
     };
 
     // Add user message immediately to THIS agent's chat
     addMessage(targetAgentId, userMsg);
 
     try {
+      const botMsgId = `msg-maru-${Date.now()}`;
+      const placeholderMsg: ChatMessage = {
+        id: botMsgId,
+        timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        sender: 'maru',
+        agentId: targetAgentId,
+        agentName: currentAgent.name,
+        content: '',
+        thinkingSteps: ['Analizando consulta...'],
+        isLocal: false
+      };
+      
+      // Add empty placeholder message first
+      addMessage(targetAgentId, placeholderMsg);
+
       const data = await ApiService.sendChatMessage({
         prompt: userMsgText,
         agentId: targetAgentId,
@@ -148,38 +168,59 @@ export const ChatView: React.FC<ChatViewProps> = ({
         userProfile,
         healthProfile,
         locationProfile,
-        fileAttachment: currentAttachment
+        fileAttachment: attachedFile as unknown as { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string },
+        onUpdate: (content: string) => {
+          setMessagesMap(prev => {
+            const agentMsgs = [...(prev[targetAgentId] || [])];
+            const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
+            if (msgIdx !== -1) {
+              agentMsgs[msgIdx] = { ...agentMsgs[msgIdx], content };
+            }
+            return { ...prev, [targetAgentId]: agentMsgs };
+          });
+        }
       });
 
       if (data) {
-        // The response is ALWAYS shown in the agent's chat where the user typed
-        // (even if the router internally selected a different model/agent)
-        const botMsg: ChatMessage = {
-          id: `msg-maru-${Date.now()}`,
-          timestamp: data.timestamp || new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-          sender: 'maru',
-          agentId: targetAgentId,  // always attribute to the agent chat where user typed
-          agentName: currentAgent.name,
-          content: data.content,
-          thinkingSteps: data.thinkingSteps,
-          modelUsed: data.modelUsed,
-          modelRAM: data.modelRAM,
-          isLocal: data.isLocal,
-          decisionReason: data.decisionReason,
-          sourceInfo: `Respuesta Cognitiva (${data.modelUsed})`
-        };
-
-        addMessage(targetAgentId, botMsg);
+        // Final update with complete data (metadata, model used, etc)
+        setMessagesMap(prev => {
+          const agentMsgs = [...(prev[targetAgentId] || [])];
+          const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
+          if (msgIdx !== -1) {
+            agentMsgs[msgIdx] = {
+              ...agentMsgs[msgIdx],
+              content: data.content,
+              thinkingSteps: data.thinkingSteps,
+              modelUsed: data.modelUsed,
+              modelRAM: data.modelRAM,
+              isLocal: data.isLocal,
+              decisionReason: data.decisionReason,
+              sourceInfo: `Respuesta Cognitiva (${data.modelUsed})`
+            };
+            StorageService.saveAgentMessages(targetAgentId, agentMsgs);
+          }
+          return { ...prev, [targetAgentId]: agentMsgs };
+        });
 
         const settings = StorageService.getSettings();
         if (settings.voiceReadoutEnabled) {
-          setSpeakingMsgId(botMsg.id);
+          if (activeAudioRef.current) {
+            activeAudioRef.current.pause();
+            activeAudioRef.current = null;
+          }
+          AudioService.stopSpeech();
+          
+          setSpeakingMsgId(botMsgId);
           const ttsVoice = data.voice || 'es-PE-CamilaNeural';
-          const audio = await ApiService.playTTS(botMsg.content, ttsVoice);
+          const audio = await ApiService.playTTS(data.content, ttsVoice);
           if (!audio) {
-            AudioService.speakText(botMsg.content, botMsg.agentId, () => setSpeakingMsgId(null));
+            AudioService.speakText(data.content, targetAgentId, () => setSpeakingMsgId(null));
           } else {
-            audio.onended = () => setSpeakingMsgId(null);
+            activeAudioRef.current = audio;
+            audio.onended = () => {
+              setSpeakingMsgId(null);
+              activeAudioRef.current = null;
+            };
           }
         }
       } else {
@@ -202,17 +243,37 @@ export const ChatView: React.FC<ChatViewProps> = ({
     } catch (err) {
       console.error('Chat error:', err);
     } finally {
-      setIsGenerating(false);
+      setGeneratingAgents(prev => {
+        const next = new Set(prev);
+        next.delete(targetAgentId);
+        return next;
+      });
     }
   };
 
-  const handleToggleSpeak = (msg: ChatMessage) => {
+  const handleToggleSpeak = async (msg: ChatMessage) => {
+    if (activeAudioRef.current) {
+      activeAudioRef.current.pause();
+      activeAudioRef.current = null;
+    }
+    AudioService.stopSpeech();
+
     if (speakingMsgId === msg.id) {
-      AudioService.stopSpeech();
       setSpeakingMsgId(null);
     } else {
       setSpeakingMsgId(msg.id);
-      AudioService.speakText(msg.content, msg.agentId, () => setSpeakingMsgId(null));
+      // Attempt TTS first
+      const ttsVoice = currentAgent.voiceTone || 'es-PE-CamilaNeural';
+      const audio = await ApiService.playTTS(msg.content, ttsVoice);
+      if (!audio) {
+        AudioService.speakText(msg.content, msg.agentId, () => setSpeakingMsgId(null));
+      } else {
+        activeAudioRef.current = audio;
+        audio.onended = () => {
+          setSpeakingMsgId(null);
+          activeAudioRef.current = null;
+        };
+      }
     }
   };
 
@@ -340,15 +401,77 @@ export const ChatView: React.FC<ChatViewProps> = ({
                         <Brain size={14} className="text-[#4A9B9D] animate-pulse" />
                         <span>Proceso Cognitivo</span>
                       </div>
-                      {msg.thinkingSteps.map((step, idx) => (
+                      {msg.thinkingSteps.map((step: string, idx: number) => (
                         <div key={idx} className="text-[11px] text-[#2C3E50]">{step}</div>
                       ))}
                     </div>
                   )}
 
                   {/* Content */}
-                  <div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</div>
-
+                  <div className={`text-sm leading-relaxed ${isUser ? 'text-white' : 'text-[#2C3E50]'}`}>
+                    {isUser ? (
+                      <div className="whitespace-pre-wrap">{msg.content}</div>
+                    ) : (
+                      <div className="markdown-body space-y-4">
+                        <ReactMarkdown
+                          remarkPlugins={[remarkGfm]}
+                          rehypePlugins={[rehypeRaw]}
+                          components={{
+                          strong: ({node: _node, ...props}: any) => <span className="font-bold text-[#1E3A5F]" {...props} />,
+                          p: ({node: _node, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                          ul: ({node: _node, ...props}: any) => <ul className="list-disc pl-5 mb-3 space-y-1" {...props} />,
+                          ol: ({node: _node, ...props}: any) => <ol className="list-decimal pl-5 mb-3 space-y-1" {...props} />,
+                          li: ({node: _node, ...props}: any) => <li className="pl-1" {...props} />,
+                          h1: ({node: _node, ...props}: any) => <h1 className="text-xl font-bold mb-3 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                          h2: ({node: _node, ...props}: any) => <h2 className="text-lg font-bold mb-2 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                          h3: ({node: _node, ...props}: any) => <h3 className="text-md font-bold mb-2 mt-3" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                          a: ({node: _node, ...props}: any) => <a className="underline transition-colors font-medium hover:opacity-80" style={{ color: currentAgent.colorPrimary }} target="_blank" rel="noopener noreferrer" {...props} />,
+                          blockquote: ({node: _node, ...props}: any) => (
+                            <blockquote 
+                              className="border-l-4 pl-4 py-1 my-3 bg-[#F5F1E8]/50 italic text-[#6B7F8C] rounded-r-lg" 
+                              style={{ borderLeftColor: currentAgent.colorPrimary }} 
+                              {...props} 
+                            />
+                          ),
+                          table: ({node: _node, ...props}: any) => (
+                            <div className="overflow-x-auto my-4 rounded-lg border shadow-sm" style={{ borderColor: `${currentAgent.colorPrimary}30` }}>
+                              <table className="w-full text-left text-sm" {...props} />
+                            </div>
+                          ),
+                          thead: ({node: _node, ...props}: any) => <thead className="bg-[#F5F1E8] text-[#1E3A5F]" {...props} />,
+                          th: ({node: _node, ...props}: any) => <th className="px-4 py-3 font-bold border-b" style={{ borderColor: `${currentAgent.colorPrimary}30` }} {...props} />,
+                          td: ({node: _node, ...props}: any) => <td className="px-4 py-3 border-b border-[#E3DCCB] last:border-0" {...props} />,
+                          tr: ({node: _node, ...props}: any) => <tr className="hover:bg-[#F5F1E8]/30 transition-colors" {...props} />,
+                          /* eslint-disable @typescript-eslint/no-explicit-any */
+                          code({node: _node, inline, className, children, ...props}: any) {
+                            const match = /language-(\w+)/.exec(className || '')
+                            return !inline && match ? (
+                              <div className="rounded-lg overflow-hidden my-3 border border-[#E3DCCB]">
+                                <div className="bg-[#E3DCCB]/30 px-3 py-1 text-[10px] font-mono text-[#6B7F8C] uppercase flex justify-between items-center">
+                                  {match[1]}
+                                </div>
+                                <SyntaxHighlighter
+                                  {...props}
+                                  children={String(children).replace(/\n$/, '')}
+                                  style={oneLight}
+                                  language={match[1]}
+                                  PreTag="div"
+                                  customStyle={{ margin: 0, padding: '1rem', background: '#FAFAFA', fontSize: '0.85rem' }}
+                                />
+                              </div>
+                            ) : (
+                              <code {...props} className="bg-[#E3DCCB]/40 px-1.5 py-0.5 rounded font-mono text-xs font-semibold" style={{ color: currentAgent.colorPrimary }}>
+                                {children}
+                              </code>
+                            )
+                          }
+                        }}
+                      >
+                        {msg.content}
+                      </ReactMarkdown>
+                      </div>
+                    )}
+                  </div>
                   {/* Model footer */}
                   {!isUser && msg.modelUsed && (
                     <div className="pt-2 border-t border-[#E3DCCB]/60 flex flex-wrap items-center justify-between text-[10px] font-mono text-[#6B7F8C]">
@@ -385,7 +508,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
         )}
 
         {/* Generating indicator */}
-        {isGenerating && (
+        {generatingAgents.has(activeAgentId) && (
           <div className="flex items-center gap-3 p-4 bg-white border border-[#4A9B9D]/40 rounded-2xl max-w-lg shadow-md animate-pulse">
             <div
               className="w-9 h-9 rounded-full text-white flex items-center justify-center font-bold font-serif text-lg shrink-0"
@@ -454,13 +577,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onChange={(e) => setInputText(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             placeholder={`Escríbele a ${currentAgent.name}...`}
-            disabled={isGenerating}
+            disabled={generatingAgents.has(activeAgentId)}
             className="flex-1 px-4 py-2.5 bg-[#F5F1E8]/60 border border-[#E3DCCB] rounded-xl text-sm text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
           />
 
-          {isGenerating ? (
+          {generatingAgents.has(activeAgentId) ? (
             <button
-              onClick={() => setIsGenerating(false)}
+              onClick={() => {
+                setGeneratingAgents(prev => {
+                  const next = new Set(prev);
+                  next.delete(activeAgentId);
+                  return next;
+                });
+              }}
               className="p-2.5 bg-[#C0392B] hover:bg-red-700 text-white rounded-xl transition-colors shadow flex items-center gap-1 text-xs font-mono"
               title="Detener"
             >
