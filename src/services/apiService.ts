@@ -84,6 +84,7 @@ export const ApiService = {
     locationProfile?: LocationProfile;
     fileAttachment?: { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string };
     onUpdate?: (content: string) => void;
+    onThinkingStep?: (step: string) => void;
   }): Promise<CognitiveChatResponse | null> {
     // 1. Try FastAPI backend first
     try {
@@ -98,6 +99,7 @@ export const ApiService = {
         const decoder = new TextDecoder("utf-8");
         let content = "";
         let finalData = null;
+        let lastUpdate = 0;
         if (reader) {
           let reading = true;
           while (reading) {
@@ -112,9 +114,16 @@ export const ApiService = {
               if (!line.trim()) continue;
               try {
                 const data = JSON.parse(line);
+                if (data.thinking_step) {
+                  if (params.onThinkingStep) params.onThinkingStep(data.thinking_step);
+                }
                 if (data.response) {
                   content += data.response;
-                  if (params.onUpdate) params.onUpdate(content);
+                  const now = Date.now();
+                  if (now - lastUpdate > 30) {
+                    if (params.onUpdate) params.onUpdate(content);
+                    lastUpdate = now;
+                  }
                 }
                 if (data.final) {
                   finalData = data;
@@ -176,6 +185,24 @@ export const ApiService = {
       
       let modelName = params.fileAttachment ? "gemma4:31b-cloud" : (MODEL_MAP[agentId] || "gemma4:12b");
       let agentRAM = params.fileAttachment ? "Cloud" : (RAM_MAP[agentId] || "7.6 GB");
+
+      // Verificación dinámica del modelo
+      try {
+        const tagsRes = await fetch(`${OLLAMA_DIRECT_URL}/api/tags`);
+        if (tagsRes.ok) {
+          const tagsData = await tagsRes.json();
+          const availableModels = (tagsData.models || []).map((m: { name: string }) => m.name);
+          if (availableModels.length > 0 && !availableModels.includes(modelName)) {
+            // Si el modelo preferido no está, usamos el primero que tenga (ej. llama3 o qwen)
+            console.warn(`Modelo ${modelName} no encontrado localmente. Usando ${availableModels[0]} como fallback.`);
+            modelName = availableModels[0];
+            agentRAM = "Desconocido (Fallback)";
+          }
+        }
+      } catch (e) {
+        // Ignorar si falla la verificación, intentar con el predeterminado
+      }
+
       const agentPersona = "Eres un asistente empático de MARU OS.";
       const userName = params.userProfile?.name || "Oliver";
       const city = params.locationProfile?.city || "Chosica";
@@ -216,6 +243,7 @@ export const ApiService = {
         const decoder = new TextDecoder("utf-8");
         let responseContent = "";
         let reading = true;
+        let lastUpdate = 0;
         while (reading) {
           const { done, value } = await reader.read();
           if (done) {
@@ -230,7 +258,11 @@ export const ApiService = {
               const data = JSON.parse(line);
               if (data.response) {
                 responseContent += data.response;
-                if (params.onUpdate) params.onUpdate(responseContent);
+                const now = Date.now();
+                if (now - lastUpdate > 30) {
+                  if (params.onUpdate) params.onUpdate(responseContent);
+                  lastUpdate = now;
+                }
               }
             } catch (e) {
               // Ignore partial JSON chunks
@@ -268,8 +300,14 @@ export const ApiService = {
     return null;
   },
 
+  currentAudio: null as HTMLAudioElement | null,
+
   async playTTS(text: string, voice: string = "es-PE-CamilaNeural"): Promise<HTMLAudioElement | null> {
     try {
+      if (this.currentAudio) {
+        this.currentAudio.pause();
+        this.currentAudio = null;
+      }
       const res = await fetch(`${API_BASE_URL}/tts`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -279,6 +317,7 @@ export const ApiService = {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
+        this.currentAudio = audio;
         audio.play();
         return audio;
       }

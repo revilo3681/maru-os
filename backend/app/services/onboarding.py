@@ -1,6 +1,6 @@
 import bcrypt
 from mnemonic import Mnemonic
-from typing import Dict, Any, Tuple
+from typing import Tuple
 
 class AccountService:
     @staticmethod

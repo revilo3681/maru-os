@@ -115,7 +115,8 @@ class CognitiveAgentRouter:
         from app.core.ollama import ollama_client
         
         system_prompt = """Eres un Router Cognitivo de MARU OS. Tu única tarea es clasificar la intención del usuario y devolver el ID del agente adecuado. 
-        Solo puedes devolver una de estas palabras (y NADA MÁS):
+        Si la pregunta abarca múltiples temas (ej. salud y código), puedes devolver hasta 2 IDs separados por coma.
+        Solo puedes devolver palabras de esta lista (y NADA MÁS):
         - aya (para temas médicos, salud, medicinas, dolor, bienestar físico)
         - inti (para leyes, constitución, contratos, legal)
         - kipu (para código, programación, python, bugs, react)
@@ -129,7 +130,7 @@ class CognitiveAgentRouter:
         resp = await ollama_client.generate_response("gemma4:e2b", system_prompt, prompt, temperature=0.1)
         agent_id_raw = resp.get("content", "").strip().lower()
         
-        agent_id = "aya"
+        agent_ids = []
         reason = "Agente predeterminado"
         
         # Validar la respuesta del modelo
@@ -137,38 +138,67 @@ class CognitiveAgentRouter:
         
         for valid in valid_agents:
             if valid in agent_id_raw:
-                agent_id = valid
-                reason = f"Clasificado inteligentemente por gemma4:e2b → {agent_id.capitalize()}"
-                break
+                agent_ids.append(valid)
+        
+        if not agent_ids:
+            agent_ids = ["aya"]
         
         # Fallback basado en reglas si e2b falla o no devuelve algo válido
-        if reason == "Agente predeterminado":
+        if reason == "Agente predeterminado" and len(agent_ids) == 1 and agent_ids[0] == "aya":
             p_lower = prompt.lower()
             if any(w in p_lower for w in ["dolor", "fiebre", "síntoma", "médico", "salud", "alergia", "pastilla"]):
-                agent_id = "aya"
+                agent_ids = ["aya"]
                 reason = "Fallback reglas: Salud → Aya"
             elif any(w in p_lower for w in ["ley", "legal", "contrato", "derecho"]):
-                agent_id = "inti"
+                agent_ids = ["inti"]
                 reason = "Fallback reglas: Legal → Inti"
             elif any(w in p_lower for w in ["código", "code", "programa", "bug", "python", "react"]):
-                agent_id = "kipu"
+                agent_ids = ["kipu"]
                 reason = "Fallback reglas: Código → Kipu"
             elif any(w in p_lower for w in ["sismo", "huaico", "emergencia"]):
-                agent_id = "tupac"
+                agent_ids = ["tupac"]
                 reason = "Fallback reglas: Emergencia → Tupac"
+            else:
+                reason = f"Clasificado inteligentemente por gemma4:e2b → {', '.join(agent_ids)}"
+        else:
+            reason = f"Clasificado inteligentemente por gemma4:e2b → {', '.join(agent_ids)}"
 
-        agent_info = AGENTS_METADATA[agent_id]
+        # Limitar a máximo 2 agentes para no sobrecargar
+        agent_ids = list(dict.fromkeys(agent_ids))[:2]
+        
+        primary_agent_id = agent_ids[0]
+        agent_info = AGENTS_METADATA[primary_agent_id]
 
-        if file_attached or is_multi_agent:
-            selected_model = "gemma4:31b-cloud"
-            ram_req = "Cloud"
-            reason += " + gemma4:31b-cloud para visión/multi-agente"
+        is_multi = len(agent_ids) > 1 or is_multi_agent
+
+        # 3. Detectar si se necesitan herramientas del Mundo Real (Phase 8)
+        tools_needed = []
+        p_lower = prompt.lower()
+        
+        # Heurística para Web Search
+        if any(w in p_lower for w in ["busca", "internet", "noticia", "hoy", "clima", "qué pasó", "quién es"]):
+            tools_needed.append("search_web")
+            reason += " + [Búsqueda Web activada]"
+            
+        # Heurística para Sandbox Python
+        if primary_agent_id == "kipu" and any(w in p_lower for w in ["ejecuta", "corre", "script", "sandbox", "calcula"]):
+            tools_needed.append("execute_python")
+            reason += " + [Sandbox Python activado]"
+
+        if file_attached or is_multi or tools_needed:
+            selected_model = "gemma4:12b" # Usar el modelo más robusto para síntesis y tools
+            ram_req = "7.6 GB"
+            if "multi-agente" not in reason:
+                reason += " (gemma4:12b para Tools)"
         else:
             selected_model = agent_info["model"]
             ram_req = agent_info["ram"]
 
         return {
-            "agent_id": agent_id,
+            "agent_id": primary_agent_id, # El primario es el sintetizador
+            "agent_ids": agent_ids,       # Todos los involucrados
+            "is_multi_agent": is_multi,
+            "tools": tools_needed,        # Herramientas a ejecutar
             "agent": agent_info,
             "model_name": selected_model,
             "ram_required": ram_req,
@@ -183,8 +213,8 @@ class CognitiveAgentRouter:
         return [
             f"🧠 Analizando solicitud de {user_name}...",
             f"> Verificando historial y perfil en {city}... ✓",
-            f"> Consultando RAG (Qdrant) + Grafo (Neo4j)... ✓",
+            "> Consultando RAG (Qdrant) + Grafo (Neo4j)... ✓",
             f"> Datos ambientales {city} via SENAMHI... ✓",
             f"> Activando {agent_name} con {model_name} ({model_type})... ✓",
-            f"> Sintetizando respuesta cognitiva Gemma4... ✓"
+            "> Sintetizando respuesta cognitiva Gemma4... ✓"
         ]

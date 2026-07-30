@@ -60,9 +60,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setAttachedFile(null);
   }, [activeAgentId]);
 
-  // Auto-scroll to bottom
+  // Auto-scroll to bottom (removed smooth behavior to prevent jumping during rapid stream)
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView();
   }, [messages, generatingAgents]);
 
   const addMessage = useCallback((agentId: string, msg: ChatMessage) => {
@@ -161,6 +161,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
       // Add empty placeholder message first
       addMessage(targetAgentId, placeholderMsg);
 
+      // Pequeño retraso artificial para que el usuario pueda leer "Pensando..." y el proceso cognitivo
+      await new Promise(r => setTimeout(r, 800));
+
       const data = await ApiService.sendChatMessage({
         prompt: userMsgText,
         agentId: targetAgentId,
@@ -175,6 +178,20 @@ export const ChatView: React.FC<ChatViewProps> = ({
             const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
             if (msgIdx !== -1) {
               agentMsgs[msgIdx] = { ...agentMsgs[msgIdx], content };
+            }
+            return { ...prev, [targetAgentId]: agentMsgs };
+          });
+        },
+        onThinkingStep: (step: string) => {
+          setMessagesMap(prev => {
+            const agentMsgs = [...(prev[targetAgentId] || [])];
+            const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
+            if (msgIdx !== -1) {
+              const currentSteps = agentMsgs[msgIdx].thinkingSteps || [];
+              agentMsgs[msgIdx] = { 
+                ...agentMsgs[msgIdx], 
+                thinkingSteps: [...currentSteps, step]
+              };
             }
             return { ...prev, [targetAgentId]: agentMsgs };
           });
@@ -413,6 +430,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
                       <div className="whitespace-pre-wrap">{msg.content}</div>
                     ) : (
                       <div className="markdown-body space-y-4">
+                        {/* If no content yet but generating, show a thinking cursor */}
+                        {msg.content === '' && msg.agentId && generatingAgents.has(msg.agentId) && (
+                          <div className="flex items-center gap-2 text-[#4A9B9D] font-mono text-xs animate-pulse">
+                            <span className="inline-block w-2 h-4 bg-[#4A9B9D]"></span> Pensando...
+                          </div>
+                        )}
                         <ReactMarkdown
                           remarkPlugins={[remarkGfm]}
                           rehypePlugins={[rehypeRaw]}

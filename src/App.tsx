@@ -111,7 +111,7 @@ export function App() {
               />
             )}
 
-            {currentTab === 'chat' && (
+            <div style={{ display: currentTab === 'chat' ? 'flex' : 'none', flex: 1, height: '100%' }}>
               <ChatView
                 activeAgentId={activeAgentId}
                 onSelectAgent={(id) => setActiveAgentId(id)}
@@ -119,7 +119,7 @@ export function App() {
                 healthProfile={healthProfile}
                 locationProfile={locationProfile}
               />
-            )}
+            </div>
 
             {currentTab === 'agents' && (
               <AgentsView

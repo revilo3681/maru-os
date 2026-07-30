@@ -1,7 +1,6 @@
 import sqlite3
 import redis.asyncio as redis
 import os
-import json
 import logging
 from typing import Dict, Any, Optional
 from sqlalchemy import create_engine

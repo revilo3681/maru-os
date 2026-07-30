@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
@@ -87,7 +87,8 @@ async def get_peru_info(city: str = "Chosica"):
 
 @router.post("/auth/register")
 async def register_account(req: RegisterAccountRequest):
-    hashed_pwd = AccountService.hash_password(req.password)
+    # Password is not hashed here yet
+    # We would hash it later or mock it
     seed_str, seed_list = AccountService.generate_bip39_seed()
     
     # Save allergy/user relationships into Neo4j graph store if user profile is ready
@@ -138,19 +139,27 @@ async def cognitive_chat(req: ChatRequest):
     # 2. Thinking Steps Generation
     thinking_steps = CognitiveAgentRouter.generate_thinking_steps(user_name, city, agent_info["name"], model_name)
 
-    # 3. System Prompt
+    # 3. Recuperar Memoria de Qdrant (RAG)
+    try_memories = await vector_store.search_memories(req.prompt, limit=3)
+    memory_context = ""
+    if try_memories:
+        memory_context = "Memoria de conversaciones anteriores:\n"
+        for mem in try_memories:
+            memory_context += f"- Usuario: {mem.get('text', '')} | MARU: {mem.get('response', '')}\n"
+    
+    # 4. System Prompt
     system_prompt = f"""Eres {agent_info['name']}, el agente de {agent_info['specialty']} con alma de MARU OS.
 Frase característica: '{agent_info['phrase']}'.
 Hablas de forma empática, cálida y directa a {user_name} en {city}.
 Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].
 Si el usuario pregunta por comidas, medicamentos o salud, valida estrictamente las alergias.
+{memory_context}
 Responde en idioma Español con calidez humana."""
 
     # 4. Procesar archivo adjunto (PDF / OCR) si existe
     extracted_text = ""
     if has_file and req.fileAttachment.get("dataBase64"):
         import base64
-        import io
         
         file_data = req.fileAttachment["dataBase64"].split(",")[-1]
         file_bytes = base64.b64decode(file_data)
@@ -172,14 +181,66 @@ Responde en idioma Español con calidez humana."""
     if extracted_text:
         final_prompt = f"El usuario adjuntó un documento con el siguiente texto extraído:\n\n---\n{extracted_text}\n---\n\nPregunta/Mensaje del usuario: {req.prompt}"
 
+    # Setup multi-agent parameters
+    is_multi_agent = route_res.get("is_multi_agent", False)
+    all_agent_ids = route_res.get("agent_ids", [agent_id])
+    secondary_agents = all_agent_ids[1:] if len(all_agent_ids) > 1 else []
+    tools_needed = route_res.get("tools", [])
+
     # 5. Intent local Ollama query
     import json
+    from app.services.tools import search_web_tool, execute_python_tool
     
     async def generate():
         async with user_lock:
+            nonlocal system_prompt
+            
+            # --- Tool Execution (Fase 8) ---
+            if tools_needed:
+                tool_results = ""
+                if "search_web" in tools_needed:
+                    yield json.dumps({"thinking_step": "Buscando información en internet..."}).encode('utf-8') + b'\n'
+                    search_res = await search_web_tool(final_prompt)
+                    tool_results += f"\n[Resultados Búsqueda Web]:\n{search_res}\n"
+                
+                if "execute_python" in tools_needed:
+                    yield json.dumps({"thinking_step": "Escribiendo código Python..."}).encode('utf-8') + b'\n'
+                    # 1. Pedir a Kipu que escriba solo código
+                    code_prompt = f"Eres un programador experto. El usuario pidió esto: '{final_prompt}'. Escribe SOLO el código Python 3 necesario para resolverlo, sin Markdown ni explicaciones. Asegúrate de imprimir (print) el resultado final."
+                    code_res = await ollama_client.generate_response(model_name, "Solo devuelve código limpio, sin ```python ni nada extra.", code_prompt, temperature=0.1)
+                    code_clean = code_res.get("content", "").replace("```python", "").replace("```", "").strip()
+                    
+                    yield json.dumps({"thinking_step": "Ejecutando script en Sandbox Local..."}).encode('utf-8') + b'\n'
+                    exec_res = await execute_python_tool(code_clean)
+                    tool_results += f"\n[Resultado Sandbox Python (STDOUT/STDERR)]:\n{exec_res}\n"
+                
+                if tool_results:
+                    system_prompt += f"\n\nATENCIÓN: Usa obligatoriamente los siguientes resultados de las Herramientas Externas para responder:\n{tool_results}"
+
+            # --- Multi-Agent (Fase 7) ---
+            if is_multi_agent and secondary_agents:
+                yield json.dumps({"thinking_step": "Activando panel de expertos..."}).encode('utf-8') + b'\n'
+                
+                expert_opinions = ""
+                for sec_id in secondary_agents:
+                    sec_info = AGENTS_METADATA[sec_id]
+                    yield json.dumps({"thinking_step": f"{sec_info['name']} está analizando el contexto..."}).encode('utf-8') + b'\n'
+                    
+                    sec_prompt = f"Eres {sec_info['name']}, experto en {sec_info['specialty']}. Da un consejo o análisis muy breve (2-3 oraciones) sobre esta solicitud: {final_prompt}"
+                    
+                    # Llamada síncrona al experto
+                    res_dict = await ollama_client.generate_response(model_name, sec_prompt, final_prompt, temperature=0.3)
+                    expert_text = res_dict.get("content", "")
+                    expert_opinions += f"\nOpinión de {sec_info['name']}: {expert_text}"
+                
+                yield json.dumps({"thinking_step": f"Sintetizando respuestas con {agent_info['name']}..."}).encode('utf-8') + b'\n'
+                
+                # Inyectar opiniones al prompt final
+                nonlocal system_prompt
+                system_prompt += f"\n\nATENCIÓN: Cuentas con las opiniones de tus compañeros expertos. Úsalas para enriquecer tu respuesta final:\n{expert_opinions}"
+
             has_content = False
             full_content = ""
-            is_local = True
 
             async for chunk in ollama_client.generate_response_stream(model_name, system_prompt, final_prompt):
                 has_content = True
@@ -188,9 +249,9 @@ Responde en idioma Español con calidez humana."""
                     if "response" in data:
                         full_content += data["response"]
                     if "final" in data:
-                        is_local = data.get("is_local", True)
+                        # is_local = data.get("is_local", True)
                         # When done, add memory
-                        vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
+                        await vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
                         # Add metadata to final chunk
                         data.update({
                             "agentId": agent_id,
@@ -203,7 +264,7 @@ Responde en idioma Español con calidez humana."""
                         })
                         yield json.dumps(data).encode('utf-8') + b'\n'
                         return
-                except:
+                except Exception:
                     pass
                 yield chunk
 
@@ -219,7 +280,7 @@ Responde en idioma Español con calidez humana."""
                 else:
                     full_content = f"{user_name}, he procesado tu mensaje con atención desde el manantial cognitivo de MARU OS en {city}. Estoy aquí para guiarte y acompañarte en tu día a día.\n\n¿En qué más te puedo ayudar hoy?"
 
-                vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
+                await vector_store.add_memory(f"msg_{user_name}", req.prompt, {"agent": agent_id, "response": full_content})
                 
                 fallback_response = {
                     "response": full_content,

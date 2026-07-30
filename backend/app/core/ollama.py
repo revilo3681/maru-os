@@ -63,8 +63,28 @@ class OllamaClient:
                 if res.status_code == 200:
                     return res.json().get("models", [])
         except Exception as e:
-            logger.warning(f"Error listando modelos: {e}")
+            logger.error(f"Ollama list_models error: {e}")
         return []
+
+    async def get_embeddings(self, text: str, model: str = "nomic-embed-text") -> List[float]:
+        url = await self.get_working_url()
+        if not url:
+            return []
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                res = await client.post(
+                    f"{url}/api/embeddings",
+                    json={"model": model, "prompt": text}
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    return data.get("embedding", [])
+                else:
+                    logger.error(f"Error getting embeddings: {res.text}")
+                    return []
+        except Exception as e:
+            logger.error(f"Exception getting embeddings: {e}")
+            return []
 
     async def generate_response_stream(
         self,
@@ -114,14 +134,14 @@ class OllamaClient:
                                                     "url_used": url
                                                 }
                                                 yield json.dumps(final_payload).encode('utf-8') + b'\n'
-                                        except:
+                                        except Exception:
                                             pass
                                 return
                             else:
                                 err = (await res.aread()).decode('utf-8')[:200]
                                 logger.warning(f"❌ {attempt_model} → status {res.status_code}: {err}")
                                 if "mlx runner failed" in err or "unsupported architecture" in err or "500" in str(res.status_code):
-                                    logger.info(f"→ Error, intentando fallback...")
+                                    logger.info("→ Error, intentando fallback...")
                                     continue
                 except Exception as e:
                     logger.error(f"Error con {attempt_model}: {e}")
@@ -146,7 +166,7 @@ class OllamaClient:
                     content += data["response"]
                 if "final" in data:
                     final_data = data
-            except:
+            except Exception:
                 pass
         return {
             "content": content,

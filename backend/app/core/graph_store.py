@@ -64,4 +64,23 @@ class KnowledgeGraphStore:
             logger.error(f"Error Neo4j check_medical_interactions: {e}")
             return []
 
+    def add_user_fact(self, username: str, relation: str, target_node_label: str, target_name: str):
+        if not self.driver:
+            return
+        
+        # Sanitizar entradas básicas para evitar inyección cypher simple
+        relation = "".join([c for c in relation if c.isalnum() or c == "_"]).upper()
+        target_node_label = "".join([c for c in target_node_label if c.isalnum()]).capitalize()
+        
+        query = f"""
+        MERGE (u:User {{name: $username}})
+        MERGE (t:{target_node_label} {{name: $target_name}})
+        MERGE (u)-[:{relation}]->(t)
+        """
+        try:
+            with self.driver.session() as session:
+                session.run(query, username=username, target_name=target_name)
+        except Exception as e:
+            logger.error(f"Error Neo4j add_user_fact: {e}")
+
 graph_store = KnowledgeGraphStore()
