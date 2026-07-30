@@ -14,7 +14,13 @@ import {
   XCircle,
   ToggleLeft,
   ToggleRight,
-  LogOut
+  LogOut,
+  FileText,
+  Code2,
+  CloudRain,
+  HeartPulse,
+  Scale,
+  ShieldAlert
 } from 'lucide-react';
 import { AgentId } from '../../types';
 import { AGENTS_CATALOG } from '../../data/agentsData';
@@ -69,6 +75,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     { id: 'memory', label: 'Memoria RAG', icon: Brain },
     { id: 'calendar', label: 'Calendario', icon: Calendar },
     { id: 'habits', label: 'Rutinas', icon: Repeat },
+    { id: 'notes', label: 'Bloc de Notas', icon: FileText },
+    { id: 'health', label: 'Salud (Aya)', icon: HeartPulse },
+    { id: 'legal', label: 'Legal (Inti)', icon: Scale },
+    { id: 'kipu', label: 'Desarrollo (Kipu)', icon: Code2 },
+    { id: 'pacha', label: 'Clima (Pacha)', icon: CloudRain },
+    { id: 'emergency', label: 'Emergencia (Tupac)', icon: ShieldAlert },
     { id: 'settings', label: 'Ajustes', icon: Settings }
   ];
 

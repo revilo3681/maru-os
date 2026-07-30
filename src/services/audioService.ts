@@ -73,67 +73,88 @@ export class AudioService {
       .replace(/\n+/g, ' ');
 
     this.synth.cancel(); // stop current speech
+    this.isSpeaking = true;
+    this.simulateAudioLevelPulse();
 
-    const utterance = new SpeechSynthesisUtterance(cleanText);
-    utterance.lang = 'es-PE';
+    // Split text by punctuation marks that require a pause
+    const segments = cleanText.split(/([.!?;:]+)/).filter(Boolean);
+    
+    const playSegment = (index: number) => {
+      if (!this.synth || !this.isSpeaking) return;
+      if (index >= segments.length) {
+        this.isSpeaking = false;
+        this.stopAudioLevelPulse();
+        if (onEnd) onEnd();
+        return;
+      }
 
-    // Agent specific voice modulation
-    switch (agentId) {
-      case 'aya':
-        utterance.pitch = 1.1;
-        utterance.rate = 0.95;
-        break;
-      case 'inti':
-        utterance.pitch = 0.9;
-        utterance.rate = 0.98;
-        break;
-      case 'kipu':
-        utterance.pitch = 1.0;
-        utterance.rate = 1.15;
-        break;
-      case 'sumaq':
-        utterance.pitch = 1.2;
-        utterance.rate = 0.9;
-        break;
-      case 'pacha':
-        utterance.pitch = 0.85;
-        utterance.rate = 0.85;
-        break;
-      case 'tupac':
-        utterance.pitch = 0.8;
-        utterance.rate = 1.0;
-        break;
-      case 'yaku':
-        utterance.pitch = 1.05;
-        utterance.rate = 1.0;
-        break;
-    }
+      const segmentText = segments[index] + (segments[index + 1] && /^[.!?;:]+$/.test(segments[index + 1]) ? segments[index + 1] : '');
+      const skipNext = segments[index + 1] && /^[.!?;:]+$/.test(segments[index + 1]);
 
-    // Attempt to pick a Spanish voice if available
-    const voices = this.synth.getVoices();
-    const spanishVoice = voices.find(v => v.lang.startsWith('es') || v.lang.startsWith('es-PE') || v.lang.startsWith('es-MX') || v.lang.startsWith('es-ES'));
-    if (spanishVoice) {
-      utterance.voice = spanishVoice;
-    }
+      if (!segmentText.trim()) {
+        playSegment(index + (skipNext ? 2 : 1));
+        return;
+      }
 
-    utterance.onstart = () => {
-      this.isSpeaking = true;
-      this.simulateAudioLevelPulse();
+      const utterance = new SpeechSynthesisUtterance(segmentText.trim());
+      utterance.lang = 'es-PE';
+
+      // Agent specific voice modulation
+      switch (agentId) {
+        case 'aya':
+          utterance.pitch = 1.1;
+          utterance.rate = 0.95;
+          break;
+        case 'inti':
+          utterance.pitch = 0.9;
+          utterance.rate = 0.98;
+          break;
+        case 'kipu':
+          utterance.pitch = 1.0;
+          utterance.rate = 1.15;
+          break;
+        case 'sumaq':
+          utterance.pitch = 1.2;
+          utterance.rate = 0.9;
+          break;
+        case 'pacha':
+          utterance.pitch = 0.85;
+          utterance.rate = 0.85;
+          break;
+        case 'tupac':
+          utterance.pitch = 0.8;
+          utterance.rate = 1.0;
+          break;
+        case 'yaku':
+          utterance.pitch = 1.05;
+          utterance.rate = 1.0;
+          break;
+      }
+
+      const voices = this.synth.getVoices();
+      const spanishVoice = voices.find(v => v.lang.startsWith('es') || v.lang.startsWith('es-PE') || v.lang.startsWith('es-MX') || v.lang.startsWith('es-ES'));
+      if (spanishVoice) {
+        utterance.voice = spanishVoice;
+      }
+
+      utterance.onend = () => {
+        if (!this.isSpeaking) return;
+        // Add a slight artificial pause (200ms) for logical punctuation
+        setTimeout(() => {
+          playSegment(index + (skipNext ? 2 : 1));
+        }, 200);
+      };
+
+      utterance.onerror = (e) => {
+        console.warn('Speech synthesis error on segment:', e);
+        if (!this.isSpeaking) return;
+        playSegment(index + (skipNext ? 2 : 1));
+      };
+
+      this.synth.speak(utterance);
     };
 
-    utterance.onend = () => {
-      this.isSpeaking = false;
-      this.stopAudioLevelPulse();
-      if (onEnd) onEnd();
-    };
-
-    utterance.onerror = () => {
-      this.isSpeaking = false;
-      this.stopAudioLevelPulse();
-      if (onEnd) onEnd();
-    };
-
-    this.synth.speak(utterance);
+    playSegment(0);
   }
 
   static stopSpeech() {

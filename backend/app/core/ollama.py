@@ -5,13 +5,11 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Los 4 modelos Gemma del usuario
-# MLX corren en Metal GPU pero requieren fallback a cloud si el runner falla
+# Los 3 modelos Gemma 4 cuantizados locales del usuario
 GEMMA_MODELS = {
-    "gemma4:e4b-mlx":   {"ram": "8.8 GB", "type": "Local MLX", "role": "Cerebro principal"},
-    "gemma4:12b-mlx":   {"ram": "7.7 GB", "type": "Local MLX", "role": "Visión & Código"},
-    "gemma4:e2b-mlx":   {"ram": "6.5 GB", "type": "Local MLX", "role": "Ultra rápido"},
-    "gemma4:31b-cloud": {"ram": "Cloud",  "type": "Cloud",     "role": "Máxima capacidad"},
+    "gemma4:e2b-q4":   {"ram": "3.3 GB", "type": "Local Quantized", "role": "Ultra rápido / Default"},
+    "gemma4:e4b-q4":   {"ram": "5.2 GB", "type": "Local Quantized", "role": "Cerebro principal"},
+    "gemma4:12b-q4":   {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código de alta precisión"},
 }
 
 CANDIDATE_URLS = [

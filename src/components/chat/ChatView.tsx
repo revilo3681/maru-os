@@ -14,6 +14,7 @@ import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { oneLight } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { GmailDraftCard } from './GmailDraftCard';
 interface ChatViewProps {
   activeAgentId: AgentId;
   onSelectAgent: (id: AgentId) => void;
@@ -64,6 +65,39 @@ export const ChatView: React.FC<ChatViewProps> = ({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView();
   }, [messages, generatingAgents]);
+
+  // Poll for background notifications (Gmail drafts)
+  useEffect(() => {
+    let isMounted = true;
+    const pollInterval = setInterval(async () => {
+      const notifs = await ApiService.checkNotifications();
+      if (isMounted && notifs && notifs.length > 0) {
+        notifs.forEach(notif => {
+          const notificationMsg: ChatMessage = {
+            id: `msg-maru-${Date.now()}-${Math.random()}`,
+            timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+            sender: 'maru',
+            agentId: 'aya', // Default background agent
+            agentName: 'Aya (Fondo)',
+            content: 'Se ha detectado un correo de alta prioridad y he redactado un borrador sugerido. Por favor, revisa el contenido.',
+            isLocal: true,
+            gmailDraftNotification: notif
+          };
+          
+          setMessagesMap(prev => {
+            const agentMsgs = [...(prev['aya'] || []), notificationMsg];
+            StorageService.saveAgentMessages('aya', agentMsgs);
+            return { ...prev, ['aya']: agentMsgs };
+          });
+        });
+      }
+    }, 5000); // Check every 5 seconds
+    
+    return () => {
+      isMounted = false;
+      clearInterval(pollInterval);
+    };
+  }, []);
 
   const addMessage = useCallback((agentId: string, msg: ChatMessage) => {
     setMessagesMap(prev => {
@@ -123,27 +157,29 @@ export const ChatView: React.FC<ChatViewProps> = ({
   };
 
   // Send message
-  const handleSendMessage = async () => {
-    if ((!inputText.trim() && !attachedFile) || generatingAgents.has(activeAgentId)) return;
+  const handleSendMessageWithUpgrade = async (overridePrompt?: string, confirmUpgrade?: boolean) => {
+    const userMsgText = overridePrompt || inputText.trim();
+    if (!userMsgText && !attachedFile) return;
 
-    const userMsgText = inputText.trim();
     const currentAttachment = attachedFile;
     const targetAgentId = activeAgentId; // capture the agent at send time
 
-    setInputText('');
-    setAttachedFile(null);
+    if (!overridePrompt) {
+      setInputText('');
+      setAttachedFile(null);
+    }
     setGeneratingAgents(prev => new Set(prev).add(targetAgentId));
 
-    const userMsg: ChatMessage = {
-      id: `msg-usr-${Date.now()}`,
-      timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-      sender: 'user',
-      content: userMsgText || (currentAttachment ? `[Archivo: ${currentAttachment.name}]` : ''),
-      fileAttachment: currentAttachment ? { ...currentAttachment, dataBase64: undefined } : undefined
-    };
-
-    // Add user message immediately to THIS agent's chat
-    addMessage(targetAgentId, userMsg);
+    if (!overridePrompt) {
+      const userMsg: ChatMessage = {
+        id: `msg-usr-${Date.now()}`,
+        timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
+        sender: 'user',
+        content: userMsgText || (currentAttachment ? `[Archivo: ${currentAttachment.name}]` : ''),
+        fileAttachment: currentAttachment ? { ...currentAttachment, dataBase64: undefined } : undefined
+      };
+      addMessage(targetAgentId, userMsg);
+    }
 
     try {
       const botMsgId = `msg-maru-${Date.now()}`;
@@ -158,26 +194,25 @@ export const ChatView: React.FC<ChatViewProps> = ({
         isLocal: false
       };
       
-      // Add empty placeholder message first
       addMessage(targetAgentId, placeholderMsg);
-
-      // Pequeño retraso artificial para que el usuario pueda leer "Pensando..." y el proceso cognitivo
-      await new Promise(r => setTimeout(r, 800));
+      await new Promise(r => setTimeout(r, 400));
 
       const data = await ApiService.sendChatMessage({
         prompt: userMsgText,
         agentId: targetAgentId,
         manualAgent: !autoAgent,
+        confirmUpgrade: confirmUpgrade || false,
+        userContext: userProfile.customContext || "",
         userProfile,
         healthProfile,
         locationProfile,
-        fileAttachment: attachedFile as unknown as { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string },
+        fileAttachment: currentAttachment as unknown as { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string },
         onUpdate: (content: string) => {
           setMessagesMap(prev => {
             const agentMsgs = [...(prev[targetAgentId] || [])];
             const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
             if (msgIdx !== -1) {
-              agentMsgs[msgIdx] = { ...agentMsgs[msgIdx], content };
+              agentMsgs[msgIdx] = { ...agentMsgs[msgIdx], content, isFinal: false };
             }
             return { ...prev, [targetAgentId]: agentMsgs };
           });
@@ -199,7 +234,6 @@ export const ChatView: React.FC<ChatViewProps> = ({
       });
 
       if (data) {
-        // Final update with complete data (metadata, model used, etc)
         setMessagesMap(prev => {
           const agentMsgs = [...(prev[targetAgentId] || [])];
           const msgIdx = agentMsgs.findIndex(m => m.id === botMsgId);
@@ -212,50 +246,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
               modelRAM: data.modelRAM,
               isLocal: data.isLocal,
               decisionReason: data.decisionReason,
+              upgradeRequest: data.upgradeRequest,
+              isFinal: true,
               sourceInfo: `Respuesta Cognitiva (${data.modelUsed})`
             };
             StorageService.saveAgentMessages(targetAgentId, agentMsgs);
           }
           return { ...prev, [targetAgentId]: agentMsgs };
         });
-
-        const settings = StorageService.getSettings();
-        if (settings.voiceReadoutEnabled) {
-          if (activeAudioRef.current) {
-            activeAudioRef.current.pause();
-            activeAudioRef.current = null;
-          }
-          AudioService.stopSpeech();
-          
-          setSpeakingMsgId(botMsgId);
-          const ttsVoice = data.voice || 'es-PE-CamilaNeural';
-          const audio = await ApiService.playTTS(data.content, ttsVoice);
-          if (!audio) {
-            AudioService.speakText(data.content, targetAgentId, () => setSpeakingMsgId(null));
-          } else {
-            activeAudioRef.current = audio;
-            audio.onended = () => {
-              setSpeakingMsgId(null);
-              activeAudioRef.current = null;
-            };
-          }
-        }
-      } else {
-        // Show error message inline
-        const errMsg: ChatMessage = {
-          id: `msg-err-${Date.now()}`,
-          timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
-          sender: 'maru',
-          agentId: targetAgentId,
-          agentName: currentAgent.name,
-          content: `⚠️ No se pudo conectar con Ollama. Asegúrate de que Ollama esté corriendo con:\n\n\`OLLAMA_HOST=0.0.0.0 ollama serve\`\n\nLuego vuelve a intentarlo.`,
-          thinkingSteps: [],
-          modelUsed: 'offline',
-          modelRAM: '-',
-          isLocal: false,
-          decisionReason: 'Sin conexión a Ollama'
-        };
-        addMessage(targetAgentId, errMsg);
       }
     } catch (err) {
       console.error('Chat error:', err);
@@ -266,6 +264,13 @@ export const ChatView: React.FC<ChatViewProps> = ({
         return next;
       });
     }
+  };
+
+  const handleSendMessage = () => handleSendMessageWithUpgrade();
+
+  const handleConfirmUpgrade = (lastUserPrompt: string, msgId: string) => {
+    removeMessage(activeAgentId, msgId);
+    handleSendMessageWithUpgrade(lastUserPrompt, true);
   };
 
   const handleToggleSpeak = async (msg: ChatMessage) => {
@@ -424,6 +429,52 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     </div>
                   )}
 
+                  {/* Upgrade Request Card (Point 10) */}
+                  {!isUser && msg.upgradeRequest && (
+                    <div className="p-4 bg-amber-50 border border-amber-300 rounded-xl space-y-2 text-xs text-amber-900">
+                      <div className="font-bold flex items-center gap-2 text-amber-800">
+                        <span>⚠️ Confirmación de Recursos de IA Local</span>
+                      </div>
+                      <p className="leading-relaxed">
+                        {msg.upgradeRequest.reason}
+                      </p>
+                      <div className="text-[11px] opacity-80 font-mono">
+                        Modelo sugerido: <strong>{msg.upgradeRequest.recommendedModel}</strong> (~{msg.upgradeRequest.ramRequired} RAM)
+                      </div>
+                      <div className="pt-2 flex items-center gap-2">
+                        <button
+                          onClick={() => {
+                            const lastUserMsg = [...messages].reverse().find(m => m.sender === 'user')?.content || '';
+                            handleConfirmUpgrade(lastUserMsg, msg.id);
+                          }}
+                          className="px-3 py-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-lg shadow-sm transition-colors text-xs"
+                        >
+                          Sí, elevar a {msg.upgradeRequest.recommendedModel}
+                        </button>
+                        <button
+                          onClick={() => {
+                            const lastUserMsg = [...messages].reverse().find(m => m.sender === 'user')?.content || '';
+                            removeMessage(activeAgentId, msg.id);
+                            handleSendMessageWithUpgrade(lastUserMsg, false);
+                          }}
+                          className="px-3 py-1.5 bg-gray-200 hover:bg-gray-300 text-gray-800 font-medium rounded-lg transition-colors text-xs"
+                        >
+                          No, continuar con e2b-q4 (3.3 GB)
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Gmail Draft Notification */}
+                  {!isUser && msg.gmailDraftNotification && (
+                    <GmailDraftCard
+                      notification={msg.gmailDraftNotification}
+                      onSend={() => removeMessage(activeAgentId, msg.id)}
+                      onEdit={() => removeMessage(activeAgentId, msg.id)}
+                      onDiscard={() => removeMessage(activeAgentId, msg.id)}
+                    />
+                  )}
+
                   {/* Content */}
                   <div className={`text-sm leading-relaxed ${isUser ? 'text-white' : 'text-[#2C3E50]'}`}>
                     {isUser ? (
@@ -431,67 +482,74 @@ export const ChatView: React.FC<ChatViewProps> = ({
                     ) : (
                       <div className="markdown-body space-y-4">
                         {/* If no content yet but generating, show a thinking cursor */}
-                        {msg.content === '' && msg.agentId && generatingAgents.has(msg.agentId) && (
+                        {msg.content === '' && !msg.upgradeRequest && msg.agentId && generatingAgents.has(msg.agentId) && (
                           <div className="flex items-center gap-2 text-[#4A9B9D] font-mono text-xs animate-pulse">
                             <span className="inline-block w-2 h-4 bg-[#4A9B9D]"></span> Pensando...
                           </div>
                         )}
-                        <ReactMarkdown
-                          remarkPlugins={[remarkGfm]}
-                          rehypePlugins={[rehypeRaw]}
-                          components={{
-                          strong: ({node: _node, ...props}: any) => <span className="font-bold text-[#1E3A5F]" {...props} />,
-                          p: ({node: _node, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
-                          ul: ({node: _node, ...props}: any) => <ul className="list-disc pl-5 mb-3 space-y-1" {...props} />,
-                          ol: ({node: _node, ...props}: any) => <ol className="list-decimal pl-5 mb-3 space-y-1" {...props} />,
-                          li: ({node: _node, ...props}: any) => <li className="pl-1" {...props} />,
-                          h1: ({node: _node, ...props}: any) => <h1 className="text-xl font-bold mb-3 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
-                          h2: ({node: _node, ...props}: any) => <h2 className="text-lg font-bold mb-2 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
-                          h3: ({node: _node, ...props}: any) => <h3 className="text-md font-bold mb-2 mt-3" style={{ color: currentAgent.colorPrimary }} {...props} />,
-                          a: ({node: _node, ...props}: any) => <a className="underline transition-colors font-medium hover:opacity-80" style={{ color: currentAgent.colorPrimary }} target="_blank" rel="noopener noreferrer" {...props} />,
-                          blockquote: ({node: _node, ...props}: any) => (
-                            <blockquote 
-                              className="border-l-4 pl-4 py-1 my-3 bg-[#F5F1E8]/50 italic text-[#6B7F8C] rounded-r-lg" 
-                              style={{ borderLeftColor: currentAgent.colorPrimary }} 
-                              {...props} 
-                            />
-                          ),
-                          table: ({node: _node, ...props}: any) => (
-                            <div className="overflow-x-auto my-4 rounded-lg border shadow-sm" style={{ borderColor: `${currentAgent.colorPrimary}30` }}>
-                              <table className="w-full text-left text-sm" {...props} />
-                            </div>
-                          ),
-                          thead: ({node: _node, ...props}: any) => <thead className="bg-[#F5F1E8] text-[#1E3A5F]" {...props} />,
-                          th: ({node: _node, ...props}: any) => <th className="px-4 py-3 font-bold border-b" style={{ borderColor: `${currentAgent.colorPrimary}30` }} {...props} />,
-                          td: ({node: _node, ...props}: any) => <td className="px-4 py-3 border-b border-[#E3DCCB] last:border-0" {...props} />,
-                          tr: ({node: _node, ...props}: any) => <tr className="hover:bg-[#F5F1E8]/30 transition-colors" {...props} />,
-                          /* eslint-disable @typescript-eslint/no-explicit-any */
-                          code({node: _node, inline, className, children, ...props}: any) {
-                            const match = /language-(\w+)/.exec(className || '')
-                            return !inline && match ? (
-                              <div className="rounded-lg overflow-hidden my-3 border border-[#E3DCCB]">
-                                <div className="bg-[#E3DCCB]/30 px-3 py-1 text-[10px] font-mono text-[#6B7F8C] uppercase flex justify-between items-center">
-                                  {match[1]}
-                                </div>
-                                <SyntaxHighlighter
-                                  {...props}
-                                  children={String(children).replace(/\n$/, '')}
-                                  style={oneLight}
-                                  language={match[1]}
-                                  PreTag="div"
-                                  customStyle={{ margin: 0, padding: '1rem', background: '#FAFAFA', fontSize: '0.85rem' }}
-                                />
+                        {!msg.isFinal && msg.content !== '' ? (
+                          <div className="text-gray-500 font-mono text-xs whitespace-pre-wrap opacity-70 animate-pulse">
+                            {msg.content}
+                            <span className="inline-block w-1.5 h-3.5 bg-gray-400 ml-1"></span>
+                          </div>
+                        ) : (
+                          <ReactMarkdown
+                            remarkPlugins={[remarkGfm]}
+                            rehypePlugins={[rehypeRaw]}
+                            components={{
+                            strong: ({node: _node, ...props}: any) => <span className="font-bold text-[#1E3A5F]" {...props} />,
+                            p: ({node: _node, ...props}: any) => <p className="mb-3 last:mb-0 leading-relaxed" {...props} />,
+                            ul: ({node: _node, ...props}: any) => <ul className="list-disc pl-5 mb-3 space-y-1" {...props} />,
+                            ol: ({node: _node, ...props}: any) => <ol className="list-decimal pl-5 mb-3 space-y-1" {...props} />,
+                            li: ({node: _node, ...props}: any) => <li className="pl-1" {...props} />,
+                            h1: ({node: _node, ...props}: any) => <h1 className="text-xl font-bold mb-3 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                            h2: ({node: _node, ...props}: any) => <h2 className="text-lg font-bold mb-2 mt-4" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                            h3: ({node: _node, ...props}: any) => <h3 className="text-md font-bold mb-2 mt-3" style={{ color: currentAgent.colorPrimary }} {...props} />,
+                            a: ({node: _node, ...props}: any) => <a className="underline transition-colors font-medium hover:opacity-80" style={{ color: currentAgent.colorPrimary }} target="_blank" rel="noopener noreferrer" {...props} />,
+                            blockquote: ({node: _node, ...props}: any) => (
+                              <blockquote 
+                                className="border-l-4 pl-4 py-1 my-3 bg-[#F5F1E8]/50 italic text-[#6B7F8C] rounded-r-lg" 
+                                style={{ borderLeftColor: currentAgent.colorPrimary }} 
+                                {...props} 
+                              />
+                            ),
+                            table: ({node: _node, ...props}: any) => (
+                              <div className="overflow-x-auto my-4 rounded-lg border shadow-sm" style={{ borderColor: `${currentAgent.colorPrimary}30` }}>
+                                <table className="w-full text-left text-sm" {...props} />
                               </div>
-                            ) : (
-                              <code {...props} className="bg-[#E3DCCB]/40 px-1.5 py-0.5 rounded font-mono text-xs font-semibold" style={{ color: currentAgent.colorPrimary }}>
-                                {children}
-                              </code>
-                            )
-                          }
-                        }}
-                      >
-                        {msg.content}
-                      </ReactMarkdown>
+                            ),
+                            thead: ({node: _node, ...props}: any) => <thead className="bg-[#F5F1E8] text-[#1E3A5F]" {...props} />,
+                            th: ({node: _node, ...props}: any) => <th className="px-4 py-3 font-bold border-b" style={{ borderColor: `${currentAgent.colorPrimary}30` }} {...props} />,
+                            td: ({node: _node, ...props}: any) => <td className="px-4 py-3 border-b border-[#E3DCCB] last:border-0" {...props} />,
+                            tr: ({node: _node, ...props}: any) => <tr className="hover:bg-[#F5F1E8]/30 transition-colors" {...props} />,
+                            /* eslint-disable @typescript-eslint/no-explicit-any */
+                            code({node: _node, inline, className, children, ...props}: any) {
+                              const match = /language-(\w+)/.exec(className || '')
+                              return !inline && match ? (
+                                <div className="rounded-lg overflow-hidden my-3 border border-[#E3DCCB]">
+                                  <div className="bg-[#E3DCCB]/30 px-3 py-1 text-[10px] font-mono text-[#6B7F8C] uppercase flex justify-between items-center">
+                                    {match[1]}
+                                  </div>
+                                  <SyntaxHighlighter
+                                    {...props}
+                                    children={String(children).replace(/\n$/, '')}
+                                    style={oneLight}
+                                    language={match[1]}
+                                    PreTag="div"
+                                    customStyle={{ margin: 0, padding: '1rem', background: '#FAFAFA', fontSize: '0.85rem' }}
+                                  />
+                                </div>
+                              ) : (
+                                <code {...props} className="bg-[#E3DCCB]/40 px-1.5 py-0.5 rounded font-mono text-xs font-semibold" style={{ color: currentAgent.colorPrimary }}>
+                                  {children}
+                                </code>
+                              )
+                            }
+                          }}
+                        >
+                          {msg.content}
+                        </ReactMarkdown>
+                        )}
                       </div>
                     )}
                   </div>

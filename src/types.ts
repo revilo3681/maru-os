@@ -20,6 +20,7 @@ export interface UserProfile {
   occupation: string;
   personalityDesc: string;
   communicationTone: CommunicationTone;
+  customContext?: string;
 }
 
 export interface Medication {
@@ -79,6 +80,13 @@ export interface FileAttachment {
   sizeFormatted?: string;
 }
 
+export interface UpgradeRequestInfo {
+  recommendedModel: string;
+  currentModel: string;
+  ramRequired: string;
+  reason: string;
+}
+
 export interface ChatMessage {
   id: string;
   timestamp: string;
@@ -91,10 +99,13 @@ export interface ChatMessage {
   modelRAM?: string;
   isLocal?: boolean;
   decisionReason?: string;
+  isFinal?: boolean;
   fileAttachment?: FileAttachment;
   userRating?: 'liked' | 'disliked';
   doNotSave?: boolean;
   sourceInfo?: string;
+  upgradeRequest?: UpgradeRequestInfo;
+  gmailDraftNotification?: GmailDraftNotification;
 }
 
 export interface KnowledgeNode {
@@ -170,4 +181,20 @@ export interface AppSettings {
   autoAgentRouting: boolean;
   themeMode: 'auto' | 'day' | 'night';
   privacyLocalOnly: boolean;
+}
+
+export interface Note {
+  id: string;
+  title: string;
+  content: string; // Markdown text
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface GmailDraftNotification {
+  id: string;
+  sender: string;
+  subject: string;
+  suggestedDraft: string;
+  timestamp: string;
 }

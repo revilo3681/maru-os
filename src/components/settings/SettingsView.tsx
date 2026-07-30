@@ -6,7 +6,8 @@ import {
   KeyRound,
   Download,
   Trash2,
-  AlertTriangle
+  AlertTriangle,
+  Mail
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
 import { AppSettings } from '../../types';
@@ -20,6 +21,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   const [showSeed, setShowSeed] = useState(false);
   const [showWipeModal, setShowWipeModal] = useState(false);
   const [wipeConfirmText, setWipeConfirmText] = useState('');
+  const [gmailEmail, setGmailEmail] = useState(() => localStorage.getItem('maru_gmail_email') || '');
+  const [gmailAppPass, setGmailAppPass] = useState(() => localStorage.getItem('maru_gmail_app_pass') || '');
+  const [gmailSaved, setGmailSaved] = useState(false);
 
   const account = StorageService.getAccount();
 
@@ -116,6 +120,51 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
               />
             </button>
           </div>
+        </div>
+      </div>
+
+      {/* Gmail Integración Real */}
+      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
+        <h3 className="font-serif font-bold text-lg text-[#1E3A5F] border-b border-[#E3DCCB] pb-2 flex items-center gap-2">
+          <Mail className="text-[#C0392B]" size={20} />
+          Conexión con Gmail (Lectura & Borradores)
+        </h3>
+        <p className="text-xs text-[#6B7F8C]">
+          Ingresa tus credenciales o contraseña de aplicación (App Password de 16 dígitos de Google) para autorizar la lectura de notificaciones en segundo plano y la creación de borradores directos.
+        </p>
+
+        <div className="space-y-3 max-w-md text-xs">
+          <div>
+            <label className="block font-bold text-[#1E3A5F] mb-1">Correo Gmail:</label>
+            <input 
+              type="email" 
+              value={gmailEmail} 
+              onChange={(e) => setGmailEmail(e.target.value)} 
+              placeholder="tuusuario@gmail.com"
+              className="w-full px-3 py-2 border border-[#E3DCCB] rounded-xl bg-[#F5F1E8]/50"
+            />
+          </div>
+          <div>
+            <label className="block font-bold text-[#1E3A5F] mb-1">Contraseña de Aplicación / App Token:</label>
+            <input 
+              type="password" 
+              value={gmailAppPass} 
+              onChange={(e) => setGmailAppPass(e.target.value)} 
+              placeholder="•••• •••• •••• ••••"
+              className="w-full px-3 py-2 border border-[#E3DCCB] rounded-xl bg-[#F5F1E8]/50 font-mono"
+            />
+          </div>
+          <button 
+            onClick={() => {
+              localStorage.setItem('maru_gmail_email', gmailEmail);
+              localStorage.setItem('maru_gmail_app_pass', gmailAppPass);
+              setGmailSaved(true);
+              setTimeout(() => setGmailSaved(false), 3000);
+            }}
+            className="px-4 py-2 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-xl font-bold transition-all"
+          >
+            {gmailSaved ? '✓ Credenciales Guardadas Localmente' : 'Guardar Credenciales Gmail'}
+          </button>
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { UserProfile, HealthProfile, LocationProfile, AgentId } from '../types';
+import { UserProfile, HealthProfile, LocationProfile, AgentId, Note, GmailDraftNotification } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 const OLLAMA_DIRECT_URL = 'http://localhost:11434';
@@ -79,13 +79,15 @@ export const ApiService = {
     prompt: string;
     agentId?: AgentId;
     manualAgent?: boolean;
+    confirmUpgrade?: boolean;
+    userContext?: string;
     userProfile?: UserProfile;
     healthProfile?: HealthProfile;
     locationProfile?: LocationProfile;
     fileAttachment?: { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string };
     onUpdate?: (content: string) => void;
     onThinkingStep?: (step: string) => void;
-  }): Promise<CognitiveChatResponse | null> {
+  }): Promise<(CognitiveChatResponse & { upgradeRequest?: any }) | null> {
     // 1. Try FastAPI backend first
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, {
@@ -98,7 +100,8 @@ export const ApiService = {
         const reader = res.body?.getReader();
         const decoder = new TextDecoder("utf-8");
         let content = "";
-        let finalData = null;
+        let finalData: any = null;
+        let upgradeRequestData: any = null;
         let lastUpdate = 0;
         if (reader) {
           let reading = true;
@@ -114,6 +117,9 @@ export const ApiService = {
               if (!line.trim()) continue;
               try {
                 const data = JSON.parse(line);
+                if (data.type === "model_upgrade_request") {
+                  upgradeRequestData = data;
+                }
                 if (data.thinking_step) {
                   if (params.onThinkingStep) params.onThinkingStep(data.thinking_step);
                 }
@@ -133,6 +139,25 @@ export const ApiService = {
               }
             }
           }
+        }
+        if (upgradeRequestData) {
+          return {
+            agentId: params.agentId || 'aya',
+            agentName: 'Sistema MARU',
+            modelUsed: 'gemma4:e2b-q4',
+            modelRAM: '3.3 GB',
+            isLocal: true,
+            decisionReason: upgradeRequestData.reason,
+            thinkingSteps: [],
+            content: '',
+            timestamp: new Date().toISOString(),
+            upgradeRequest: {
+              recommendedModel: upgradeRequestData.recommended_model,
+              currentModel: upgradeRequestData.current_model,
+              ramRequired: upgradeRequestData.ram_required,
+              reason: upgradeRequestData.reason
+            }
+          };
         }
         if (finalData) {
           finalData.content = content;
@@ -170,12 +195,12 @@ export const ApiService = {
       }
 
       const MODEL_MAP: Record<string, string> = {
-        aya:   "gemma4:12b",
-        inti:  "gemma4:e4b",
-        kipu:  "gemma4:12b",
-        sumaq: "gemma4:e4b",
-        pacha: "gemma4:e4b",
-        tupac: "gemma4:e2b",
+        aya:   "gemma4:12b-q4",
+        inti:  "gemma4:e4b-q4",
+        kipu:  "gemma4:12b-q4",
+        sumaq: "gemma4:e4b-q4",
+        pacha: "gemma4:e4b-q4",
+        tupac: "gemma4:e2b-q4",
         yaku:  "gemma4:31b-cloud"
       };
       const RAM_MAP: Record<string, string> = {
@@ -183,7 +208,7 @@ export const ApiService = {
         sumaq: "9.6 GB", pacha: "9.6 GB", tupac: "7.2 GB", yaku: "Cloud"
       };
       
-      let modelName = params.fileAttachment ? "gemma4:31b-cloud" : (MODEL_MAP[agentId] || "gemma4:12b");
+      let modelName = params.fileAttachment ? "gemma4:31b-cloud" : (MODEL_MAP[agentId] || "gemma4:12b-q4");
       let agentRAM = params.fileAttachment ? "Cloud" : (RAM_MAP[agentId] || "7.6 GB");
 
       // Verificación dinámica del modelo
@@ -298,6 +323,60 @@ export const ApiService = {
     }
 
     return null;
+  },
+
+  async getNotes(): Promise<Note[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/notes`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Notes API endpoint offline:", e);
+    }
+    // Fallback local storage
+    const local = localStorage.getItem('maru_notes');
+    return local ? JSON.parse(local) : [];
+  },
+
+  async saveNote(note: Note): Promise<void> {
+    try {
+      await fetch(`${API_BASE_URL}/notes`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(note)
+      });
+    } catch (e) {
+      console.warn("Notes API offline, saving to localStorage:", e);
+      const local = localStorage.getItem('maru_notes');
+      let notes: Note[] = local ? JSON.parse(local) : [];
+      const idx = notes.findIndex(n => n.id === note.id);
+      if (idx >= 0) notes[idx] = note;
+      else notes.push(note);
+      localStorage.setItem('maru_notes', JSON.stringify(notes));
+    }
+  },
+
+  async checkNotifications(): Promise<GmailDraftNotification[]> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/notifications`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      // Ignore
+    }
+    return [];
+  },
+
+  async getAgenda(): Promise<any> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/agenda`);
+      if (res.ok) {
+        return await res.json();
+      }
+    } catch (e) {
+      // Fallback
+    }
+    return { calendar: [], todoist: [] };
   },
 
   currentAudio: null as HTMLAudioElement | null,

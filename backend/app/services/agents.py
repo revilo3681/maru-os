@@ -4,14 +4,12 @@ from typing import Dict, Any, List
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════
-#  Modelos Gemma 4 Estándar (GGUF Local en GPU M4 + Cloud)
+#  Modelos Gemma 4 Cuantizados Locales (Ollama)
 # ══════════════════════════════════════════════════════════════════
 GEMMA_MODELS = {
-    "gemma4:e4b":       {"ram": "9.6 GB", "type": "Local GPU M4", "role": "Cerebro principal"},
-    "gemma4:12b":       {"ram": "7.6 GB", "type": "Local GPU M4", "role": "Visión & Código"},
-    "gemma4:e2b":       {"ram": "7.2 GB", "type": "Local GPU M4", "role": "Ultra rápido"},
-    "gemma4:31b-cloud": {"ram": "Cloud",  "type": "Cloud",        "role": "Alta capacidad"},
-    "gemma4:cloud":     {"ram": "Cloud",  "type": "Cloud",        "role": "Alta capacidad"},
+    "gemma4:e2b-q4": {"ram": "3.3 GB", "type": "Local Quantized", "role": "Ultra rápido / Default"},
+    "gemma4:e4b-q4": {"ram": "5.2 GB", "type": "Local Quantized", "role": "Cerebro principal"},
+    "gemma4:12b-q4": {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código de alta precisión"},
 }
 
 AGENTS_METADATA = {
@@ -21,9 +19,9 @@ AGENTS_METADATA = {
         "specialty": "Médico & Salud Integral",
         "phrase": "Tu cuerpo habla. Yo traduzco.",
         "voice": "es-PE-CamilaNeural",
-        "model": "gemma4:12b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "7.6 GB",
+        "model": "gemma4:12b-q4",
+        "model_fallback": "gemma4:e4b-q4",
+        "ram": "7.0 GB",
         "color": "#1E3A5F",
         "sphere_3d": "Cristal Azul Latido",
         "particles": "Azuladas (Glóbulos)"
@@ -34,9 +32,9 @@ AGENTS_METADATA = {
         "specialty": "Legal & Constitución Peruana",
         "phrase": "La ley es clara bajo el sol.",
         "voice": "es-PE-AlexNeural",
-        "model": "gemma4:e4b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "9.6 GB",
+        "model": "gemma4:e4b-q4",
+        "model_fallback": "gemma4:e2b-q4",
+        "ram": "5.2 GB",
         "color": "#B8924A",
         "sphere_3d": "Mármol Gris Columnas",
         "particles": "Plateadas (Grid)"
@@ -47,9 +45,9 @@ AGENTS_METADATA = {
         "specialty": "Programador & Arquitectura",
         "phrase": "Todo problema es un quipu por desenredar.",
         "voice": "es-PE-AlexNeural",
-        "model": "gemma4:12b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "7.6 GB",
+        "model": "gemma4:12b-q4",
+        "model_fallback": "gemma4:e4b-q4",
+        "ram": "7.0 GB",
         "color": "#1A3326",
         "sphere_3d": "Circuito Verde Neón",
         "particles": "Verdes Matrix"
@@ -60,9 +58,9 @@ AGENTS_METADATA = {
         "specialty": "Bienestar, Nutrición & Mente",
         "phrase": "El equilibrio no se encuentra, se cultiva.",
         "voice": "es-PE-CamilaNeural",
-        "model": "gemma4:e4b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "9.6 GB",
+        "model": "gemma4:e4b-q4",
+        "model_fallback": "gemma4:e2b-q4",
+        "ram": "5.2 GB",
         "color": "#3A2E39",
         "sphere_3d": "Loto Lavanda Pétalos",
         "particles": "Pétalos Lavanda"
@@ -73,9 +71,9 @@ AGENTS_METADATA = {
         "specialty": "Pachamama, Clima & Ecología",
         "phrase": "La tierra te habla. Escucha.",
         "voice": "es-PE-CamilaNeural",
-        "model": "gemma4:e4b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "9.6 GB",
+        "model": "gemma4:e4b-q4",
+        "model_fallback": "gemma4:e2b-q4",
+        "ram": "5.2 GB",
         "color": "#1E392A",
         "sphere_3d": "Tierra Viva Ecosistema",
         "particles": "Hojas y Agua"
@@ -86,9 +84,9 @@ AGENTS_METADATA = {
         "specialty": "Emergencias & Gestión de Riesgos",
         "phrase": "La tierra se mueve. Yo te guío.",
         "voice": "es-PE-AlexNeural",
-        "model": "gemma4:e2b",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "7.2 GB",
+        "model": "gemma4:e2b-q4",
+        "model_fallback": "gemma4:e4b-q4",
+        "ram": "3.3 GB",
         "color": "#4A1512",
         "sphere_3d": "Obsidiana Roja Ondas",
         "particles": "Rojas Sísmicas"
@@ -99,9 +97,9 @@ AGENTS_METADATA = {
         "specialty": "Cultura, INEI & Sabiduría Andina",
         "phrase": "Desde el manantial de los Andes, te respondo.",
         "voice": "es-PE-AlexNeural",
-        "model": "gemma4:31b-cloud",
-        "model_fallback": "gemma4:31b-cloud",
-        "ram": "Cloud",
+        "model": "gemma4:e4b-q4",
+        "model_fallback": "gemma4:e2b-q4",
+        "ram": "5.2 GB",
         "color": "#1E3A5F",
         "sphere_3d": "Agua Cristalina Ondas",
         "particles": "Doradas y Teal"
@@ -126,8 +124,8 @@ class CognitiveAgentRouter:
         - yaku (para cultura peruana, historia, INEI)
         """
         
-        # Intentamos usar gemma4:e2b para la clasificación rápida
-        resp = await ollama_client.generate_response("gemma4:e2b", system_prompt, prompt, temperature=0.1)
+        # Intentamos usar gemma4:e2b-q4 para la clasificación rápida
+        resp = await ollama_client.generate_response("gemma4:e2b-q4", system_prompt, prompt, temperature=0.1)
         agent_id_raw = resp.get("content", "").strip().lower()
         
         agent_ids = []
@@ -159,9 +157,9 @@ class CognitiveAgentRouter:
                 agent_ids = ["tupac"]
                 reason = "Fallback reglas: Emergencia → Tupac"
             else:
-                reason = f"Clasificado inteligentemente por gemma4:e2b → {', '.join(agent_ids)}"
+                reason = f"Clasificado inteligentemente por gemma4:e2b-q4 → {', '.join(agent_ids)}"
         else:
-            reason = f"Clasificado inteligentemente por gemma4:e2b → {', '.join(agent_ids)}"
+            reason = f"Clasificado inteligentemente por gemma4:e2b-q4 → {', '.join(agent_ids)}"
 
         # Limitar a máximo 2 agentes para no sobrecargar
         agent_ids = list(dict.fromkeys(agent_ids))[:2]
@@ -186,10 +184,10 @@ class CognitiveAgentRouter:
             reason += " + [Sandbox Python activado]"
 
         if file_attached or is_multi or tools_needed:
-            selected_model = "gemma4:12b" # Usar el modelo más robusto para síntesis y tools
-            ram_req = "7.6 GB"
+            selected_model = "gemma4:12b-q4" # Usar el modelo más robusto para síntesis y tools
+            ram_req = "7.0 GB"
             if "multi-agente" not in reason:
-                reason += " (gemma4:12b para Tools)"
+                reason += " (gemma4:12b-q4 para Tools)"
         else:
             selected_model = agent_info["model"]
             ram_req = agent_info["ram"]

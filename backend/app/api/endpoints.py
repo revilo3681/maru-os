@@ -5,6 +5,7 @@ from typing import Optional, List, Dict, Any
 import edge_tts
 import io
 import logging
+import json
 
 from app.core.ollama import ollama_client
 from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter
@@ -24,6 +25,8 @@ class ChatRequest(BaseModel):
     prompt: str
     agentId: Optional[str] = "aya"
     manualAgent: Optional[bool] = False
+    confirmUpgrade: Optional[bool] = False
+    userContext: Optional[str] = None
     userProfile: Optional[Dict[str, Any]] = None
     healthProfile: Optional[Dict[str, Any]] = None
     locationProfile: Optional[Dict[str, Any]] = None
@@ -40,8 +43,30 @@ class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = "es-PE-CamilaNeural"
 
+class Note(BaseModel):
+    id: str
+    title: str
+    content: str
+    createdAt: str
+    updatedAt: str
+
+# --- Notes DB Mock ---
+NOTES_DB_FILE = "notes_db.json"
+def load_notes():
+    try:
+        with open(NOTES_DB_FILE, "r") as f:
+            return json.load(f)
+    except:
+        return []
+
+def save_notes(notes):
+    with open(NOTES_DB_FILE, "w") as f:
+        json.dump(notes, f)
+
+
 # --- Concurrency Queue ---
 user_locks: Dict[str, asyncio.Lock] = {}
+mock_notifications: List[Dict] = []
 
 def get_user_lock(username: str) -> asyncio.Lock:
     if username not in user_locks:
@@ -115,6 +140,7 @@ async def cognitive_chat(req: ChatRequest):
     has_file = bool(req.fileAttachment)
     
     # 1. Routing logic
+    route_res = {}
     if req.manualAgent and req.agentId in AGENTS_METADATA:
         agent_id = req.agentId
         agent_info = AGENTS_METADATA[agent_id]
@@ -129,14 +155,29 @@ async def cognitive_chat(req: ChatRequest):
         ram = route_res["ram_required"]
         reason = route_res["reason"]
 
+    # 🚦 Interrupción por Confirmación de Consumo (Point 10):
+    # Si el router sugiere gemma4:12b-q4 y el usuario aún no lo ha autorizado para este mensaje:
+    needs_upgrade_approval = (model_name == "gemma4:12b-q4") and (not req.confirmUpgrade) and (not req.manualAgent)
+    if needs_upgrade_approval:
+        async def send_upgrade_request():
+            yield json.dumps({
+                "type": "model_upgrade_request",
+                "recommended_model": "gemma4:12b-q4",
+                "current_model": "gemma4:e2b-q4",
+                "ram_required": "7.0 GB",
+                "reason": f"Esta consulta requiere razonamiento avanzado ({reason}). ¿Deseas elevar la potencia a gemma4:12b-q4?"
+            }).encode('utf-8') + b'\n'
+        return StreamingResponse(send_upgrade_request(), media_type="application/x-ndjson")
+
     user_name = req.userProfile.get("name", "Oliver") if req.userProfile else "Oliver"
     city = req.locationProfile.get("city", "Chosica") if req.locationProfile else "Chosica"
     allergies = ", ".join(req.healthProfile.get("allergies", ["Maní"])) if req.healthProfile else "Maní"
     meds = ", ".join([f"{m['name']} ({m['dose']})" for m in req.healthProfile.get("currentMedications", [])]) if req.healthProfile and "currentMedications" in req.healthProfile else "Amoxicilina (500mg)"
+    custom_context = req.userContext or (req.userProfile.get("customContext", "") if req.userProfile else "")
 
     user_lock = get_user_lock(user_name)
 
-    # 2. Thinking Steps Generation
+    # 2. Thinking Steps Generation con Porcentajes
     thinking_steps = CognitiveAgentRouter.generate_thinking_steps(user_name, city, agent_info["name"], model_name)
 
     # 3. Recuperar Memoria de Qdrant (RAG)
@@ -147,13 +188,26 @@ async def cognitive_chat(req: ChatRequest):
         for mem in try_memories:
             memory_context += f"- Usuario: {mem.get('text', '')} | MARU: {mem.get('response', '')}\n"
     
-    # 4. System Prompt
+    context_bullet = f"\nSemilla de Perfil Personal:\n{custom_context}\n" if custom_context else ""
+
+    # 4. System Prompt con Semilla de Contexto y Agenda (Fase 3)
+    p_lower = req.prompt.lower()
+    agenda_context = ""
+    if "hoy" in p_lower or "agenda" in p_lower or "tarea" in p_lower or "calendario" in p_lower or "reunión" in p_lower:
+        agenda_context = """
+[Contexto de Agenda y Rutinas del Usuario]
+Calendario: 09:00 AM Reunión de Sincronización (Proyecto MARU) | 02:30 PM Cita Médica (Chequeo General).
+Todoist: Comprar víveres (Alta prioridad) | Revisar código de Kipu (Media prioridad).
+Dile al usuario qué tiene pendiente de manera muy natural, si te lo pregunta directamente.
+"""
+
     system_prompt = f"""Eres {agent_info['name']}, el agente de {agent_info['specialty']} con alma de MARU OS.
 Frase característica: '{agent_info['phrase']}'.
 Hablas de forma empática, cálida y directa a {user_name} en {city}.
-Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].
+Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].{context_bullet}
 Si el usuario pregunta por comidas, medicamentos o salud, valida estrictamente las alergias.
 {memory_context}
+{agenda_context}
 Responde en idioma Español con calidez humana."""
 
     # 4. Procesar archivo adjunto (PDF / OCR) si existe
@@ -187,13 +241,11 @@ Responde en idioma Español con calidez humana."""
     secondary_agents = all_agent_ids[1:] if len(all_agent_ids) > 1 else []
     tools_needed = route_res.get("tools", [])
 
-    # 5. Intent local Ollama query
-    import json
     from app.services.tools import search_web_tool, execute_python_tool
     
     async def generate():
         async with user_lock:
-            nonlocal system_prompt
+            current_sys_prompt = system_prompt
             
             # --- Tool Execution (Fase 8) ---
             if tools_needed:
@@ -215,7 +267,7 @@ Responde en idioma Español con calidez humana."""
                     tool_results += f"\n[Resultado Sandbox Python (STDOUT/STDERR)]:\n{exec_res}\n"
                 
                 if tool_results:
-                    system_prompt += f"\n\nATENCIÓN: Usa obligatoriamente los siguientes resultados de las Herramientas Externas para responder:\n{tool_results}"
+                    current_sys_prompt += f"\n\nATENCIÓN: Usa obligatoriamente los siguientes resultados de las Herramientas Externas para responder:\n{tool_results}"
 
             # --- Multi-Agent (Fase 7) ---
             if is_multi_agent and secondary_agents:
@@ -236,13 +288,12 @@ Responde en idioma Español con calidez humana."""
                 yield json.dumps({"thinking_step": f"Sintetizando respuestas con {agent_info['name']}..."}).encode('utf-8') + b'\n'
                 
                 # Inyectar opiniones al prompt final
-                nonlocal system_prompt
-                system_prompt += f"\n\nATENCIÓN: Cuentas con las opiniones de tus compañeros expertos. Úsalas para enriquecer tu respuesta final:\n{expert_opinions}"
+                current_sys_prompt += f"\n\nATENCIÓN: Cuentas con las opiniones de tus compañeros expertos. Úsalas para enriquecer tu respuesta final:\n{expert_opinions}"
 
             has_content = False
             full_content = ""
 
-            async for chunk in ollama_client.generate_response_stream(model_name, system_prompt, final_prompt):
+            async for chunk in ollama_client.generate_response_stream(model_name, current_sys_prompt, final_prompt):
                 has_content = True
                 try:
                     data = json.loads(chunk.decode('utf-8'))
@@ -312,3 +363,71 @@ async def generate_tts(req: TTSRequest):
     except Exception as e:
         logger.error(f"Error generando TTS: {e}")
         raise HTTPException(status_code=500, detail="Error generando audio TTS")
+
+@router.get("/notes", response_model=List[Note])
+async def get_notes():
+    return load_notes()
+
+@router.post("/notes")
+async def save_note(note: Note):
+    notes = load_notes()
+    idx = next((i for i, n in enumerate(notes) if n["id"] == note.id), -1)
+    if idx >= 0:
+        notes[idx] = note.model_dump()
+    else:
+        notes.insert(0, note.model_dump())
+    
+    save_notes(notes)
+    
+    # RAG Vectorization
+    try:
+        await vector_store.add_memory(
+            f"note_{note.id}",
+            f"Nota de MARU OS - Título: {note.title}\n{note.content}",
+            {"type": "note", "title": note.title}
+        )
+    except Exception as e:
+        logger.error(f"Error vectorizando nota: {e}")
+
+    return {"status": "success", "note": note}
+
+@router.post("/mock-gmail")
+async def trigger_mock_gmail():
+    notif = {
+        "id": f"gmail_{int(asyncio.get_event_loop().time())}",
+        "sender": "banco@interbank.pe",
+        "subject": "Confirmación de trámite hipotecario",
+        "suggestedDraft": "Estimados,\nConfirmo la recepción de los documentos requeridos. Los revisaré en la brevedad.\n\nSaludos.",
+        "timestamp": "Ahora mismo"
+    }
+    mock_notifications.append(notif)
+    return {"status": "triggered"}
+
+@router.get("/notifications")
+async def get_notifications():
+    # Return and clear
+    res = list(mock_notifications)
+    mock_notifications.clear()
+    return res
+
+@router.get("/agenda")
+async def get_agenda():
+    # Simulador de Google Calendar y Todoist
+    return {
+        "calendar": [
+            {"id": "1", "time": "09:00 AM", "title": "Reunión de Sincronización (Proyecto MARU)", "type": "work"},
+            {"id": "2", "time": "02:30 PM", "title": "Cita Médica (Chequeo General)", "type": "health"}
+        ],
+        "todoist": [
+            {"id": "t1", "task": "Comprar víveres (Ver lista)", "priority": "Alta"},
+            {"id": "t2", "task": "Revisar código de Kipu", "priority": "Media"}
+        ]
+    }
+
+@router.post("/legal/upload")
+async def upload_legal_document():
+    # Simulador de upload y vectorización en Qdrant
+    return {"status": "success", "message": "Documento indexado correctamente en la Bóveda Legal."}
+
+
+

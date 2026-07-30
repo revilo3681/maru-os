@@ -35,12 +35,23 @@ export class ErrorBoundary extends Component<Props, State> {
             <div className="bg-red-50 text-red-700 p-4 rounded-lg text-left text-xs font-mono overflow-auto max-h-32 mb-6">
               {this.state.errorMsg}
             </div>
-            <button
-              className="px-6 py-2 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-xl transition-all"
-              onClick={() => window.location.reload()}
-            >
-              Recargar MARU OS
-            </button>
+            <div className="flex gap-3 justify-center">
+              <button
+                className="px-6 py-2.5 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-xl transition-all font-bold text-sm"
+                onClick={() => window.location.reload()}
+              >
+                Recargar MARU OS
+              </button>
+              <button
+                className="px-6 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition-all font-bold text-sm"
+                onClick={() => {
+                  localStorage.clear();
+                  window.location.href = '/';
+                }}
+              >
+                Limpiar Datos corruptos
+              </button>
+            </div>
           </div>
         </div>
       );

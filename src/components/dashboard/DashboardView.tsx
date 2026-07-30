@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { UserProfile, HealthProfile, LocationProfile, Habit } from '../../types';
 import { StorageService } from '../../services/storageService';
+import { ApiService } from '../../services/apiService';
 import { FraseDelDia } from './FraseDelDia';
 import { PomodoroTimer } from './PomodoroTimer';
 
@@ -46,6 +47,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     const updated = StorageService.toggleHabit(id);
     setHabits(updated);
   };
+
+  const [agenda, setAgenda] = useState<{calendar: any[], todoist: any[]}>({calendar: [], todoist: []});
+  React.useEffect(() => {
+    ApiService.getAgenda().then(data => {
+      if(data) setAgenda(data);
+    });
+  }, []);
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -124,35 +132,54 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <FraseDelDia />
 
       {/* Environment & Weather Alert Banner */}
-      <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm space-y-3">
-        <div className="flex items-center justify-between text-xs font-mono uppercase text-[#1E3A5F]">
-          <span className="flex items-center gap-2">
-            <Wind size={16} className="text-[#4A9B9D]" />
-            Entorno Reactivo — {locationProfile.city}
-          </span>
-          <span className="text-[#5A8F6B]">Pachamama (Pacha)</span>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        
+        {/* Pacha Widget */}
+        <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+          <div>
+            <div className="flex items-center justify-between text-xs font-mono uppercase text-[#1E3A5F] mb-4">
+              <span className="flex items-center gap-2">
+                <Wind size={16} className="text-[#4A9B9D]" />
+                Pacha: {locationProfile.city}
+              </span>
+              <span className="text-[#5A8F6B]">Conectado</span>
+            </div>
+            <div className="space-y-3">
+              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
+                <span className="text-sm font-bold text-[#C0392B] flex items-center gap-1.5"><AlertTriangle size={14}/> Riesgo Huaico</span>
+                <span className="text-xs text-[#2C3E50]">85%</span>
+              </div>
+              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
+                <span className="text-sm font-bold text-[#5A8F6B] flex items-center gap-1.5"><Wind size={14}/> Calidad Aire</span>
+                <span className="text-xs text-[#2C3E50]">AQI: 45</span>
+              </div>
+              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
+                <span className="text-sm font-bold text-[#1E3A5F] flex items-center gap-1.5"><MapPin size={14}/> Zona Segura</span>
+                <span className="text-xs text-[#2C3E50]">A 500m</span>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-          <div className="p-3 bg-[#C0392B]/10 border border-[#C0392B]/30 rounded-xl">
-            <div className="font-bold text-[#C0392B] flex items-center gap-1.5">
-              <AlertTriangle size={14} /> Riesgo Huaico: 85%
-            </div>
-            <div className="text-[11px] text-[#2C3E50] mt-1">Precaución cerca a quebradas. Fuente: SENAMHI</div>
+        {/* Agenda Widget */}
+        <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm">
+          <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F] mb-4 border-b border-[#E3DCCB] pb-2">
+            <Clock size={18} className="text-[#B8924A]" />
+            <span>Agenda del Día (Mock)</span>
           </div>
-
-          <div className="p-3 bg-[#5A8F6B]/10 border border-[#5A8F6B]/30 rounded-xl">
-            <div className="font-bold text-[#5A8F6B] flex items-center gap-1.5">
-              <Wind size={14} /> Calidad de Aire (AQI): 45
-            </div>
-            <div className="text-[11px] text-[#2C3E50] mt-1">Aire limpio y saludable. Camina hoy.</div>
-          </div>
-
-          <div className="p-3 bg-[#1E3A5F]/10 border border-[#1E3A5F]/30 rounded-xl">
-            <div className="font-bold text-[#1E3A5F] flex items-center gap-1.5">
-              <MapPin size={14} /> Zona Segura Predeterminada
-            </div>
-            <div className="text-[11px] text-[#2C3E50] mt-1">I.E. 123 (a 500m de tu ubicación)</div>
+          <div className="space-y-3 text-sm">
+            {(agenda?.calendar || []).map((cal: any) => (
+              <div key={cal.id} className="flex justify-between items-center bg-[#B8924A]/10 p-2 rounded">
+                <span className="font-bold text-[#2C3E50]">{cal.title}</span>
+                <span className="text-xs bg-white px-2 py-1 rounded text-[#B8924A] font-mono">{cal.time}</span>
+              </div>
+            ))}
+            {(agenda?.todoist || []).map((tod: any) => (
+              <div key={tod.id} className="flex justify-between items-center border border-gray-200 p-2 rounded">
+                <span className="text-gray-600 flex items-center gap-2"><CheckSquare size={14}/> {tod.task}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded ${tod.priority === 'Alta' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>{tod.priority}</span>
+              </div>
+            ))}
           </div>
         </div>
       </div>

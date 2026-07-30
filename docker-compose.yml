@@ -71,6 +71,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=maruospassword
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+    volumes:
+      - ./backend/app:/app/app
     depends_on:
       postgres:
         condition: service_healthy

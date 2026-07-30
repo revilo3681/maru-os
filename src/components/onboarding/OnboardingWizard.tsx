@@ -371,16 +371,31 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                     key={tone.id}
                     type="button"
                     onClick={() => setProfile({ ...profile, communicationTone: tone.id as CommunicationTone })}
-                    className={`p-3 rounded-xl border text-left transition-all ${
+                    className={`p-3 text-left rounded-xl border transition-all ${
                       profile.communicationTone === tone.id
-                        ? 'border-[#4A9B9D] bg-[#4A9B9D]/10 font-semibold text-[#1E3A5F]'
-                        : 'border-[#E3DCCB] bg-[#F5F1E8]/40 hover:bg-[#F5F1E8]'
+                        ? 'bg-[#1E3A5F] text-white border-[#1E3A5F] font-semibold'
+                        : 'bg-[#F5F1E8]/50 border-[#E3DCCB] text-[#2C3E50]'
                     }`}
                   >
                     {tone.label}
                   </button>
                 ))}
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-mono uppercase text-[#2C3E50] mb-1">
+                 🌱 Semilla de Contexto Inicial (Opcional - Plus para IA Local)
+              </label>
+              <textarea
+                value={profile.customContext || ''}
+                onChange={(e) => setProfile({ ...profile, customContext: e.target.value })}
+                placeholder="Ej: Soy programador Python en MacBook Pro M4. Me gustan las explicaciones breves con ejemplos prácticos y trabajar en horario nocturno..."
+                className="w-full px-4 py-2.5 bg-[#F5F1E8]/50 border border-[#E3DCCB] rounded-xl text-xs h-20 resize-none"
+              />
+              <p className="text-[10px] text-[#6B7F8C] mt-0.5">
+                Esta información se inyectará en el System Prompt base para acelerar la comprensión de la IA local sin gastar tiempo deduciendo.
+              </p>
             </div>
           </div>
         )}

@@ -11,6 +11,12 @@ import { MemoryView } from './components/memory/MemoryView';
 import { CalendarView } from './components/calendar/CalendarView';
 import { HabitsView } from './components/habits/HabitsView';
 import { SettingsView } from './components/settings/SettingsView';
+import { NotesView } from './components/notes/NotesView';
+import { KipuView } from './components/kipu/KipuView';
+import { PachaView } from './components/pacha/PachaView';
+import { HealthView } from './components/health/HealthView';
+import { LegalView } from './components/legal/LegalView';
+import { EmergencyView } from './components/emergency/EmergencyView';
 import { LoginModal } from './components/auth/LoginModal';
 import { RecoveryModal } from './components/auth/RecoveryModal';
 import { EmergencyOverlay } from './components/emergency/EmergencyOverlay';
@@ -134,6 +140,48 @@ export function App() {
             {currentTab === 'calendar' && <CalendarView />}
 
             {currentTab === 'habits' && <HabitsView />}
+
+            {currentTab === 'notes' && <NotesView />}
+
+            {currentTab === 'kipu' && (
+              <KipuView 
+                userProfile={userProfile}
+                healthProfile={healthProfile}
+                locationProfile={locationProfile}
+              />
+            )}
+
+            {currentTab === 'pacha' && (
+              <PachaView 
+                userProfile={userProfile}
+                healthProfile={healthProfile}
+                locationProfile={locationProfile}
+              />
+            )}
+
+            {currentTab === 'health' && (
+              <HealthView 
+                userProfile={userProfile}
+                healthProfile={healthProfile}
+                locationProfile={locationProfile}
+              />
+            )}
+
+            {currentTab === 'legal' && (
+              <LegalView 
+                userProfile={userProfile}
+                healthProfile={healthProfile}
+                locationProfile={locationProfile}
+              />
+            )}
+
+            {currentTab === 'emergency' && (
+              <EmergencyView 
+                userProfile={userProfile}
+                healthProfile={healthProfile}
+                locationProfile={locationProfile}
+              />
+            )}
 
             {currentTab === 'settings' && (
               <SettingsView onWipeData={handleWipeData} />
