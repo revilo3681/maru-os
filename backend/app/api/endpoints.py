@@ -2,23 +2,39 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from typing import Optional, List, Dict, Any
-import edge_tts
 import io
 import logging
 import json
-
-from app.core.ollama import ollama_client
-from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
-from app.services.knowledge_base import build_rag_context, list_documents
-from app.services import model_config
-from app.services.peru_data import PeruDataService
-from app.services.onboarding import AccountService
-from app.services.document_parser import DocumentParserService
-from app.services import document_vault
-from app.core.graph_store import graph_store
-from app.core.vector_store import vector_store
 import asyncio
 import base64
+
+try:
+    import edge_tts
+except ImportError:
+    edge_tts = None
+
+try:
+    from app.core.ollama import ollama_client
+    from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
+    from app.services.knowledge_base import build_rag_context, list_documents
+    from app.services import model_config
+    from app.services.peru_data import PeruDataService
+    from app.services.onboarding import AccountService
+    from app.services.document_parser import DocumentParserService
+    from app.services import document_vault
+    from app.core.graph_store import graph_store
+    from app.core.vector_store import vector_store
+except ImportError:
+    from ..core.ollama import ollama_client
+    from ..services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
+    from ..services.knowledge_base import build_rag_context, list_documents
+    from ..services import model_config
+    from ..services.peru_data import PeruDataService
+    from ..services.onboarding import AccountService
+    from ..services.document_parser import DocumentParserService
+    from ..services import document_vault
+    from ..core.graph_store import graph_store
+    from ..core.vector_store import vector_store
 
 logger = logging.getLogger(__name__)
 
