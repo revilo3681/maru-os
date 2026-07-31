@@ -96,6 +96,8 @@ export const YakuView: React.FC<YakuViewProps> = ({ userProfile, healthProfile, 
   };
 
   const cities = Object.entries(PERU_SEED_DATA.ineiCities);
+  const activeNativeLang = sourceLang === 'Español' ? targetLang : sourceLang;
+  const currentQuickWords: Array<{ es: string; nat: string }> = NATIVE_QUICK_WORDS[activeNativeLang] || NATIVE_QUICK_WORDS['Quechua'] || [];
 
   return (
     <div className="flex flex-col xl:flex-row h-full w-full overflow-y-auto xl:overflow-hidden bg-[var(--maru-bg)]">
@@ -275,7 +277,7 @@ export const YakuView: React.FC<YakuViewProps> = ({ userProfile, healthProfile, 
           <div className="space-y-1.5 pt-2">
             <p className="text-xs font-semibold text-slate-600">Vocabulario frecuente ({targetLang === 'Español' ? sourceLang : targetLang}):</p>
             <div className="flex flex-wrap gap-1.5">
-              {currentQuickWords.map((item, idx) => (
+              {currentQuickWords.map((item: { es: string; nat: string }, idx: number) => (
                 <button
                   key={idx}
                   onClick={() => {

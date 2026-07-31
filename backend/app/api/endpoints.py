@@ -9,7 +9,7 @@ import asyncio
 import base64
 
 try:
-    import edge_tts
+    import edge_tts  # type: ignore
 except ImportError:
     edge_tts = None
 
