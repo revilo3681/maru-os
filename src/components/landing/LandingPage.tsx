@@ -9,7 +9,12 @@ import {
   Shield,
   WifiOff,
   Users,
-  Layers
+  Layers,
+  Volume2,
+  VolumeX,
+  Volume1,
+  Music,
+  ChevronDown
 } from 'lucide-react';
 import { MaruEnso } from '../brand/MaruEnso';
 import { AGENTS_CATALOG } from '../../data/agentsData';
@@ -76,6 +81,53 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenLogin
 }) => {
   const [activeNav, setActiveNav] = useState<string>('inicio');
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [volume, setVolume] = useState(0.4);
+  const [showVolumeMenu, setShowVolumeMenu] = useState(false);
+
+  React.useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+    }
+  }, [volume]);
+
+  // Attempt initial autoplay if allowed by browser
+  React.useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = volume;
+      const playPromise = audioRef.current.play();
+      if (playPromise !== undefined) {
+        playPromise
+          .then(() => setIsPlaying(true))
+          .catch(() => setIsPlaying(false));
+      }
+    }
+  }, []);
+
+  const togglePlay = () => {
+    if (!audioRef.current) return;
+    if (isPlaying) {
+      audioRef.current.pause();
+      setIsPlaying(false);
+    } else {
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(() => setIsPlaying(false));
+    }
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVol = parseFloat(e.target.value);
+    setVolume(newVol);
+    if (audioRef.current) {
+      audioRef.current.volume = newVol;
+      if (newVol > 0 && !isPlaying) {
+        audioRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
+      } else if (newVol === 0 && isPlaying) {
+        audioRef.current.pause();
+        setIsPlaying(false);
+      }
+    }
+  };
 
   const scrollTo = (id: string) => {
     setActiveNav(id);
@@ -85,6 +137,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
   return (
     <div className="relative min-h-screen bg-[var(--maru-bg)] text-[var(--maru-text)] font-sans overflow-x-hidden">
+      {/* Background audio — musica-portada.mp3 */}
+      <audio ref={audioRef} src="/musica-portada.mp3" loop />
+
       {/* ── HERO ── */}
       <section id="inicio" className="relative min-h-screen flex flex-col">
         {/* Full-bleed cinematic plane */}
@@ -128,9 +183,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 key={link.id}
                 type="button"
                 onClick={() => scrollTo(link.id)}
-                className={`relative pb-1 transition-colors hover:text-white ${
-                  activeNav === link.id ? 'text-[#9fe0d6]' : ''
-                }`}
+                className={`relative pb-1 transition-colors hover:text-white ${activeNav === link.id ? 'text-[#9fe0d6]' : ''
+                  }`}
               >
                 {link.label}
                 {activeNav === link.id && (
@@ -140,13 +194,89 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             ))}
           </nav>
 
-          <button
-            type="button"
-            onClick={onStartOnboarding}
-            className="min-h-10 px-4 py-2 rounded-[10px] text-sm font-display font-semibold tracking-wide border border-white/50 text-white hover:bg-white/10 hover:border-white"
-          >
-            Comenzar
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Dropdown Control de Volumen - Música de portada */}
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setShowVolumeMenu(!showVolumeMenu)}
+                className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-display font-semibold border border-white/30 text-white bg-black/30 hover:bg-black/50 backdrop-blur-md transition-all shadow-sm"
+                title="Música de Portada"
+              >
+                <Music size={14} className={isPlaying ? 'text-[#9fe0d6] animate-pulse' : 'text-white/60'} />
+                {isPlaying ? (
+                  volume > 0.5 ? <Volume2 size={15} /> : <Volume1 size={15} />
+                ) : (
+                  <VolumeX size={15} className="text-white/50" />
+                )}
+                <span className="hidden sm:inline font-mono">{Math.round(volume * 100)}%</span>
+                <ChevronDown size={13} className={`transition-transform duration-200 ${showVolumeMenu ? 'rotate-180' : ''}`} />
+              </button>
+
+              {/* Popover / Desplegable de Volumen */}
+              {showVolumeMenu && (
+                <div className="absolute right-0 mt-2 w-56 p-3 bg-white/95 text-[#1A2E35] border border-white/40 rounded-2xl shadow-xl backdrop-blur-xl z-50">
+                  <div className="flex items-center justify-between mb-2 pb-2 border-b border-gray-100">
+                    <span className="text-xs font-display font-bold flex items-center gap-1.5 text-[#007AFF]">
+                      <Music size={14} /> Música de Fondo
+                    </span>
+                    <button
+                      type="button"
+                      onClick={togglePlay}
+                      className="px-2 py-0.5 rounded-lg text-[10px] font-bold uppercase tracking-wider bg-[#007AFF]/10 text-[#007AFF] hover:bg-[#007AFF]/20 transition-colors"
+                    >
+                      {isPlaying ? 'Pausar' : 'Reproducir'}
+                    </button>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between text-[11px] font-mono font-medium text-gray-600">
+                      <span>Volumen</span>
+                      <span>{Math.round(volume * 100)}%</span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleVolumeChange({ target: { value: '0' } } as any)}
+                        className="p-1 text-gray-500 hover:text-black transition-colors"
+                        title="Silenciar"
+                      >
+                        <VolumeX size={16} />
+                      </button>
+
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.05"
+                        value={volume}
+                        onChange={handleVolumeChange}
+                        className="w-full h-1.5 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#007AFF]"
+                      />
+
+                      <button
+                        type="button"
+                        onClick={() => handleVolumeChange({ target: { value: '1' } } as any)}
+                        className="p-1 text-gray-500 hover:text-black transition-colors"
+                        title="Volumen Máximo"
+                      >
+                        <Volume2 size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <button
+              type="button"
+              onClick={onStartOnboarding}
+              className="min-h-10 px-4 py-2 rounded-[10px] text-sm font-display font-semibold tracking-wide border border-white/50 text-white hover:bg-white/10 hover:border-white transition-all shadow-sm"
+            >
+              Comenzar
+            </button>
+          </div>
         </header>
 
         {/* Hero: editorial copy (left) + orbit (right), video stays behind */}
@@ -157,7 +287,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-              className="relative max-w-xl rounded-2xl border border-white/25 bg-[#f8f5ed]/92 p-6 sm:p-8 shadow-[0_24px_70px_rgba(9,35,43,0.24)] backdrop-blur-md"
+              className="relative max-w-xl rounded-2xl border border-white/25 bg-[#f8f5ed]/30 p-6 sm:p-8 shadow-[0_24px_70px_rgba(9,35,43,0.24)] backdrop-blur-md"
             >
               <div className="relative">
                 <h1
@@ -331,10 +461,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <span className="flex items-center gap-3"><b className="text-2xl text-[var(--maru-gold)]">{pillar.letter}</b>{pillar.title}</span>
                 </summary>
                 <div className="pb-4">
-                <div className="hidden font-display text-4xl font-extrabold text-[var(--maru-gold)]/90">
-                  {pillar.letter}
-                </div>
-                <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{pillar.body}</p>
+                  <div className="hidden font-display text-4xl font-extrabold text-[var(--maru-gold)]/90">
+                    {pillar.letter}
+                  </div>
+                  <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{pillar.body}</p>
                 </div>
               </details>
             ))}
@@ -365,16 +495,16 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <details key={m.lang} className="maru-disclosure maru-panel px-4" open={m.lang === 'Quechua'}>
                 <summary>{m.title}</summary>
                 <div className="space-y-3 pb-4">
-                <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--maru-text)]/45">
-                  {m.region} · {m.lang}
-                </div>
-                <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] flex items-center gap-2 sr-only">
-                  {m.lang === 'Quechua' && <Droplets size={18} className="text-[var(--maru-gold)]" />}
-                  {m.lang === 'Japonés' && <Circle size={18} className="text-[var(--maru-gold)]" />}
-                  {m.lang === 'Inglés' && <Brain size={18} className="text-[var(--maru-gold)]" />}
-                  {m.title}
-                </h3>
-                <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{m.body}</p>
+                  <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--maru-text)]/45">
+                    {m.region} · {m.lang}
+                  </div>
+                  <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] flex items-center gap-2 sr-only">
+                    {m.lang === 'Quechua' && <Droplets size={18} className="text-[var(--maru-gold)]" />}
+                    {m.lang === 'Japonés' && <Circle size={18} className="text-[var(--maru-gold)]" />}
+                    {m.lang === 'Inglés' && <Brain size={18} className="text-[var(--maru-gold)]" />}
+                    {m.title}
+                  </h3>
+                  <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{m.body}</p>
                 </div>
               </details>
             ))}

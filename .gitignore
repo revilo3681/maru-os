@@ -10,3 +10,4 @@ output/playwright/
 !.env.example
 backend/app/data/document_vault.json
 backend/app/data/maru_config.json
+*.mp3
