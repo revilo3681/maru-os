@@ -157,7 +157,7 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
             className="w-14 h-14 rounded-full object-cover border border-[var(--maru-gold)]/50 shadow-[0_0_28px_rgba(212,175,55,0.35)] animate-maru-spin-slow"
           />
         </div>
-        <h1 className="text-3xl font-display font-bold text-white tracking-tight">
+        <h1 className="text-3xl font-display font-bold text-[var(--maru-text)] tracking-tight">
           Bienvenido al Manantial
         </h1>
         <p className="text-sm text-[var(--maru-text-muted)]">
@@ -165,16 +165,16 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
         </p>
 
         {/* Step Progress Bar */}
-        <div className="w-full bg-[var(--maru-void)] h-2 rounded-full overflow-hidden mt-4 border border-[var(--maru-border-soft)]">
+        <div className="w-full bg-[var(--maru-surface-muted)] h-2 rounded-full overflow-hidden mt-4 border border-[var(--maru-border-soft)]">
           <div
-            className="bg-[var(--maru-gold)] h-full transition-all duration-500"
+            className="bg-[var(--maru-primary)] h-full transition-all duration-500"
             style={{ width: `${(step / 7) * 100}%` }}
           />
         </div>
       </div>
 
       {/* Main Card Container — readable warm surface */}
-      <div className="w-full max-w-2xl bg-white text-[var(--maru-text)] border border-[var(--maru-gold)]/25 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.45)] p-6 sm:p-8 space-y-6">
+      <div className="w-full max-w-2xl maru-panel !p-6 sm:!p-8 space-y-6">
         {/* PASO 1: CREAR CUENTA */}
         {step === 1 && (
           <div className="space-y-5">

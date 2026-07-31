@@ -1,53 +1,57 @@
 @import "tailwindcss";
 
 :root {
-  /* Apple/Google Clean Theme */
-  --maru-void: #000000;
-  --maru-bg: #F2F2F7; /* Apple system background */
-  --maru-bg-elevated: #FFFFFF;
-  --maru-surface: #FFFFFF;
-  --maru-surface-2: #F9FAFB;
-  --maru-border: rgba(0, 0, 0, 0.1);
-  --maru-border-soft: rgba(0, 0, 0, 0.05);
-
-  /* Apple Blue Accent */
-  --maru-gold: #007AFF; 
-  --maru-gold-soft: #5AC8FA;
-  --maru-gold-deep: #0056B3;
-  --maru-amber: #FF9500;
-
-  /* Text */
-  --maru-text: #1C1C1E;
-  --maru-text-muted: #8E8E93;
-  --maru-text-dim: #C7C7CC;
-
-  /* Readable in-app reading surface (chat / long form) */
-  --maru-read-bg: #F2F2F7;
-  --maru-read-ink: #1C1C1E;
-  --maru-read-muted: #8E8E93;
-  --maru-read-card: #FFFFFF;
-  --maru-read-line: #E5E5EA;
-
-  /* Legacy bridges used by remaining views */
-  --maru-navy: #1C1C1E;
-  --maru-teal: #007AFF;
+  color-scheme: light;
+  font-family: 'DM Sans', sans-serif;
+  --maru-void: #102b35;
+  --maru-bg: #f2f5f3;
+  --maru-bg-elevated: #f7f9f7;
+  --maru-surface: #ffffff;
+  --maru-surface-muted: #e9f0ed;
+  --maru-surface-2: var(--maru-surface-muted);
+  --maru-text: #142d35;
+  --maru-text-muted: #5c6f73;
+  --maru-text-dim: #89999a;
+  --maru-primary: #147d78;
+  --maru-primary-hover: #0f6965;
+  --maru-primary-soft: #dcefeb;
+  --maru-gold: #b3883c;
+  --maru-gold-soft: #d9c18d;
+  --maru-gold-deep: #856426;
+  --maru-amber: #b9792d;
+  --maru-danger: #b84a43;
+  --maru-success: #377d62;
+  --maru-border: #cbd8d4;
+  --maru-border-soft: #dce5e2;
+  --maru-shadow-sm: 0 1px 2px rgba(16, 43, 53, 0.05), 0 5px 16px rgba(16, 43, 53, 0.04);
+  --maru-shadow-md: 0 16px 44px rgba(16, 43, 53, 0.10);
+  --maru-radius-sm: 10px;
+  --maru-radius: 14px;
+  --maru-radius-lg: 16px;
+  --maru-read-bg: #f5f7f5;
+  --maru-read-ink: var(--maru-text);
+  --maru-read-muted: var(--maru-text-muted);
+  --maru-read-card: var(--maru-surface);
+  --maru-read-line: var(--maru-border-soft);
+  --maru-navy: var(--maru-text);
+  --maru-teal: var(--maru-primary);
 }
 
 @layer utilities {
   .font-display {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Outfit', sans-serif;
   }
   .font-serif {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Cormorant Garamond', Georgia, serif;
   }
   .font-script {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'Great Vibes', cursive;
   }
   .font-sans {
-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    font-family: 'DM Sans', sans-serif;
   }
   .font-mono {
-    font-family: 'SF Mono', 'Roboto Mono', 'JetBrains Mono', monospace;
+    font-family: 'JetBrains Mono', monospace;
   }
 
   .maru-gold-text {
@@ -55,39 +59,130 @@
   }
 
   .maru-gradient-void {
-    background: linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%);
+    background: linear-gradient(180deg, var(--maru-bg-elevated), var(--maru-bg));
   }
 
   .maru-glass {
-    background: rgba(255, 255, 255, 0.85);
-    backdrop-filter: blur(24px);
+    background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(16px);
+    border: 1px solid var(--maru-border);
+  }
+
+  .maru-page {
+    flex: 1;
+    overflow-y: auto;
+    padding: clamp(1rem, 3vw, 2rem);
+    background: var(--maru-bg);
+    color: var(--maru-text);
+  }
+  .maru-page-header {
+    display: flex;
+    align-items: flex-end;
+    justify-content: space-between;
+    gap: 1rem;
+    padding-bottom: 1.25rem;
+    border-bottom: 1px solid var(--maru-border-soft);
+  }
+  .maru-eyebrow {
+    color: var(--maru-primary);
+    font: 600 0.72rem/1.4 'JetBrains Mono', monospace;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+  }
+  .maru-panel, .maru-panel-muted {
     border: 1px solid var(--maru-border-soft);
+    border-radius: var(--maru-radius-lg);
+    padding: clamp(1rem, 2vw, 1.5rem);
   }
-
-  .maru-btn-gold {
-    background: #007AFF;
-    color: #FFFFFF;
-    font-weight: 600;
-    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
-    box-shadow: 0 4px 14px rgba(0, 122, 255, 0.2);
-    border-radius: 9999px;
+  .maru-panel {
+    background: var(--maru-surface);
+    box-shadow: var(--maru-shadow-sm);
   }
-  .maru-btn-gold:hover {
+  .maru-panel-muted { background: var(--maru-surface-muted); }
+  .maru-section-title {
+    color: var(--maru-text);
+    font: 600 1rem/1.3 'Outfit', sans-serif;
+  }
+  .maru-btn-primary, .maru-btn-secondary, .maru-btn-quiet,
+  .maru-btn-gold, .maru-btn-ghost {
+    min-height: 40px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: .5rem;
+    border-radius: var(--maru-radius-sm);
+    padding: .625rem 1rem;
+    font: 600 .875rem/1 'Outfit', sans-serif;
+    transition: background-color .18s ease, border-color .18s ease, color .18s ease, transform .18s ease;
+  }
+  .maru-btn-primary, .maru-btn-gold {
+    background: var(--maru-primary);
+    color: #fff;
+    border: 1px solid var(--maru-primary);
+    box-shadow: 0 5px 14px rgba(20, 125, 120, .18);
+  }
+  .maru-btn-primary:hover, .maru-btn-gold:hover {
+    background: var(--maru-primary-hover);
+    border-color: var(--maru-primary-hover);
     transform: translateY(-1px);
-    opacity: 0.9;
-    box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
   }
-
-  .maru-btn-ghost {
-    border: 1px solid rgba(0, 122, 255, 0.5);
-    color: #007AFF;
+  .maru-btn-secondary, .maru-btn-ghost {
+    border: 1px solid var(--maru-border);
+    color: var(--maru-primary);
+    background: var(--maru-surface);
+  }
+  .maru-btn-secondary:hover, .maru-btn-ghost:hover {
+    background: var(--maru-primary-soft);
+    border-color: var(--maru-primary);
+  }
+  .maru-btn-quiet {
+    color: var(--maru-text-muted);
     background: transparent;
-    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
-    border-radius: 9999px;
+    border: 1px solid transparent;
   }
-  .maru-btn-ghost:hover {
-    background: rgba(0, 122, 255, 0.05);
-    border-color: #007AFF;
+  .maru-btn-quiet:hover { background: var(--maru-surface-muted); color: var(--maru-text); }
+  .maru-field {
+    min-height: 42px;
+    width: 100%;
+    border: 1px solid var(--maru-border);
+    border-radius: var(--maru-radius-sm);
+    background: var(--maru-surface);
+    color: var(--maru-text);
+    padding: .65rem .8rem;
+    font-size: .9rem;
+    outline: none;
+  }
+  .maru-field:focus { border-color: var(--maru-primary); box-shadow: 0 0 0 3px rgba(20, 125, 120, .12); }
+  .maru-chip {
+    display: inline-flex; align-items: center; gap: .35rem;
+    min-height: 28px; padding: .25rem .6rem; border-radius: 8px;
+    background: var(--maru-surface-muted); color: var(--maru-text-muted);
+    font: 600 .72rem/1 'DM Sans', sans-serif;
+  }
+  .maru-status-success { color: var(--maru-success); background: rgba(55,125,98,.1); }
+  .maru-status-warning { color: var(--maru-amber); background: rgba(185,121,45,.1); }
+  .maru-status-danger { color: var(--maru-danger); background: rgba(184,74,67,.1); }
+  details.maru-disclosure > summary {
+    cursor: pointer; list-style: none; min-height: 40px;
+    display: flex; align-items: center; justify-content: space-between;
+    font: 600 .875rem 'Outfit', sans-serif; color: var(--maru-text);
+  }
+  details.maru-disclosure > summary::-webkit-details-marker { display: none; }
+  details.maru-disclosure > summary::after { content: '+'; color: var(--maru-primary); font-size: 1.2rem; }
+  details.maru-disclosure[open] > summary::after { content: '−'; }
+  .maru-app-view {
+    background: var(--maru-bg) !important;
+    color: var(--maru-text) !important;
+  }
+  .maru-app-view h1 { color: var(--maru-text) !important; font-family: 'Outfit', sans-serif; }
+  .maru-app-view input, .maru-app-view textarea, .maru-app-view select { font-family: 'DM Sans', sans-serif; }
+  .maru-app-view button { min-height: 40px; }
+  .maru-app-view .bg-white { border-color: var(--maru-border-soft); }
+  .maru-app-view [class*="bg-[#F2F2F7]"], .maru-app-view [class*="bg-[#F5F1E8]"] { background: var(--maru-surface-muted) !important; }
+  .maru-app-view [class*="text-[#007AFF]"] { color: var(--maru-primary) !important; }
+  .maru-app-view [class*="bg-[#007AFF]"] { background: var(--maru-primary) !important; }
+  @media (max-width: 767px) {
+    .maru-page-header { align-items: flex-start; flex-direction: column; }
   }
 }
 
@@ -260,5 +355,90 @@
   }
   to {
     transform: rotate(-360deg);
+  }
+}
+
+/* Brand enso — brush ring draws in on mount */
+@keyframes maru-enso-draw {
+  from { stroke-dashoffset: 1; }
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes maru-enso-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes maru-enso-appear {
+  from { opacity: 0; }
+  to { opacity: 0.9; }
+}
+
+/* Water flow — dashed current line slides downstream */
+@keyframes maru-water-flow {
+  to { stroke-dashoffset: -56; }
+}
+
+/* Water glint — soft light drifts diagonally across the scene */
+@keyframes maru-water-glint {
+  0%, 100% { transform: translate(-4%, -3%); opacity: 0.5; }
+  50% { transform: translate(4%, 3%); opacity: 1; }
+}
+
+/* Halo breathe — gentle heartbeat of the aura */
+@keyframes maru-halo-breathe {
+  0%, 100% { transform: scale(1); opacity: 0.55; }
+  50% { transform: scale(1.045); opacity: 0.9; }
+}
+
+.animate-maru-enso-stroke {
+  stroke-dasharray: 1;
+  animation: maru-enso-draw 2.4s cubic-bezier(0.35, 0, 0.25, 1) both;
+}
+
+.animate-maru-enso-spin {
+  animation: maru-enso-spin 150s linear infinite;
+}
+
+.animate-maru-enso-appear {
+  animation: maru-enso-appear 0.7s ease-out 2.1s both;
+}
+
+.animate-maru-water-flow {
+  animation: maru-water-flow 7s linear infinite;
+}
+
+.animate-maru-water-glint {
+  animation: maru-water-glint 9s ease-in-out infinite;
+}
+
+.animate-maru-halo-breathe {
+  animation: maru-halo-breathe 4.5s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-maru-enso-stroke {
+    animation: none;
+    stroke-dasharray: none;
+    stroke-dashoffset: 0;
+  }
+  .animate-maru-enso-appear {
+    animation: none;
+    opacity: 0.9;
+  }
+  .animate-maru-enso-spin,
+  .animate-maru-water-flow,
+  .animate-maru-water-glint,
+  .animate-maru-halo-breathe {
+    animation: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

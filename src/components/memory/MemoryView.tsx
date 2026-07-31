@@ -1,96 +1,317 @@
-import React from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { StorageService } from '../../services/storageService';
-import { Network, Database, Layers, ShieldCheck } from 'lucide-react';
+import { KnowledgeEdge, KnowledgeNode } from '../../types';
+import { Network, Clock, Database, Layers, ShieldCheck } from 'lucide-react';
+import { AGENTS_CATALOG } from '../../data/agentsData';
+
+const TYPE_COLOR: Record<KnowledgeNode['type'], string> = {
+  user: '#B8924A',
+  allergy: '#FF3B30',
+  medication: '#007AFF',
+  condition: '#FF9500',
+  location: '#4A9B9D',
+  risk: '#C0392B',
+  agent: '#5856D6'
+};
+
+interface SimNode extends KnowledgeNode {
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+}
+
+function buildTimeline() {
+  const profile = StorageService.getProfile();
+  const health = StorageService.getHealth();
+  const messages = AGENTS_CATALOG.flatMap((a) =>
+    StorageService.getAgentMessages(a.id).slice(-3).map((m) => ({
+      at: m.timestamp,
+      agent: a.name,
+      text: m.content.slice(0, 120),
+      sender: m.sender
+    }))
+  );
+  const events = StorageService.getCalendarEvents().slice(0, 5).map((e) => ({
+    at: `${e.date} ${e.time}`,
+    agent: 'Agenda',
+    text: e.title,
+    sender: 'system' as const
+  }));
+
+  return [
+    { at: 'Perfil', agent: 'Sistema', text: `${profile.name} · ${profile.occupation}`, sender: 'system' },
+    ...health.allergies.map((a) => ({ at: 'Salud', agent: 'Aya', text: `Alergia: ${a}`, sender: 'system' as const })),
+    ...health.currentMedications.map((m) => ({
+      at: 'Salud',
+      agent: 'Aya',
+      text: `Medicamento: ${m.name} ${m.dose}`,
+      sender: 'system' as const
+    })),
+    ...events,
+    ...messages.slice(-12)
+  ];
+}
 
 export const MemoryView: React.FC = () => {
   const { nodes, edges } = StorageService.getKnowledgeGraph();
   const profile = StorageService.getProfile();
-  const _health = StorageService.getHealth();
-  const _location = StorageService.getLocation();
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [selected, setSelected] = useState<KnowledgeNode | null>(null);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const simRef = useRef<SimNode[]>([]);
+  const edgesRef = useRef<KnowledgeEdge[]>(edges);
+  const hoverRef = useRef<string | null>(null);
+  const selectedRef = useRef<KnowledgeNode | null>(null);
+  const timeline = useMemo(() => buildTimeline(), []);
+
+  useEffect(() => {
+    hoverRef.current = hoverId;
+  }, [hoverId]);
+  useEffect(() => {
+    selectedRef.current = selected;
+  }, [selected]);
+
+  useEffect(() => {
+    const w = 900;
+    const h = 520;
+    simRef.current = nodes.map((n, i) => {
+      const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2;
+      const r = 120 + (i % 3) * 40;
+      return {
+        ...n,
+        x: w / 2 + Math.cos(angle) * r,
+        y: h / 2 + Math.sin(angle) * r,
+        vx: 0,
+        vy: 0
+      };
+    });
+    edgesRef.current = edges;
+  }, [nodes, edges]);
+
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    let raf = 0;
+    const dpr = window.devicePixelRatio || 1;
+
+    const resize = () => {
+      const parent = canvas.parentElement;
+      const w = parent?.clientWidth || 800;
+      const h = 520;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${h}px`;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    };
+    resize();
+    window.addEventListener('resize', resize);
+
+    const tick = () => {
+      const w = canvas.width / dpr;
+      const h = canvas.height / dpr;
+      const sims = simRef.current;
+      const hover = hoverRef.current;
+      const sel = selectedRef.current;
+
+      for (let i = 0; i < sims.length; i++) {
+        for (let j = i + 1; j < sims.length; j++) {
+          const a = sims[i];
+          const b = sims[j];
+          let dx = b.x - a.x;
+          let dy = b.y - a.y;
+          const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+          const min = 90;
+          if (dist < min) {
+            const f = ((min - dist) / min) * 0.6;
+            dx /= dist;
+            dy /= dist;
+            a.vx -= dx * f;
+            a.vy -= dy * f;
+            b.vx += dx * f;
+            b.vy += dy * f;
+          }
+        }
+      }
+      for (const e of edgesRef.current) {
+        const a = sims.find((n) => n.id === e.source);
+        const b = sims.find((n) => n.id === e.target);
+        if (!a || !b) continue;
+        const dx = b.x - a.x;
+        const dy = b.y - a.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+        const f = (dist - 140) * 0.01;
+        a.vx += (dx / dist) * f;
+        a.vy += (dy / dist) * f;
+        b.vx -= (dx / dist) * f;
+        b.vy -= (dy / dist) * f;
+      }
+      for (const n of sims) {
+        n.vx += (w / 2 - n.x) * 0.002;
+        n.vy += (h / 2 - n.y) * 0.002;
+        n.vx *= 0.85;
+        n.vy *= 0.85;
+        n.x += n.vx;
+        n.y += n.vy;
+        n.x = Math.max(40, Math.min(w - 40, n.x));
+        n.y = Math.max(40, Math.min(h - 40, n.y));
+      }
+
+      ctx.clearRect(0, 0, w, h);
+      const g = ctx.createRadialGradient(w / 2, h / 2, 20, w / 2, h / 2, Math.max(w, h) / 1.2);
+      g.addColorStop(0, '#1a2f3a');
+      g.addColorStop(1, '#0d171c');
+      ctx.fillStyle = g;
+      ctx.fillRect(0, 0, w, h);
+
+      ctx.fillStyle = 'rgba(255,255,255,0.03)';
+      for (let i = 0; i < 40; i++) {
+        ctx.beginPath();
+        ctx.arc((i * 97) % w, (i * 53) % h, 1.2, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      for (const e of edgesRef.current) {
+        const a = sims.find((n) => n.id === e.source);
+        const b = sims.find((n) => n.id === e.target);
+        if (!a || !b) continue;
+        const active = hover === a.id || hover === b.id || sel?.id === a.id || sel?.id === b.id;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.strokeStyle = active ? 'rgba(184,146,74,0.85)' : 'rgba(74,155,157,0.35)';
+        ctx.lineWidth = active ? 2 : 1;
+        ctx.stroke();
+        ctx.fillStyle = active ? 'rgba(245,241,232,0.7)' : 'rgba(245,241,232,0.35)';
+        ctx.font = '10px ui-monospace, monospace';
+        ctx.fillText(e.label, (a.x + b.x) / 2, (a.y + b.y) / 2 - 4);
+      }
+
+      for (const n of sims) {
+        const color = TYPE_COLOR[n.type] || '#4A9B9D';
+        const active = hover === n.id || sel?.id === n.id;
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, active ? 22 : 16, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.globalAlpha = active ? 1 : 0.9;
+        ctx.fill();
+        ctx.globalAlpha = 1;
+        ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+        ctx.lineWidth = 1.5;
+        ctx.stroke();
+        ctx.fillStyle = '#F5F1E8';
+        ctx.font = 'bold 11px "Iowan Old Style", Georgia, serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(n.label.slice(0, 16), n.x, n.y + 34);
+      }
+
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+
+    const onMove = (ev: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const hit = simRef.current.find((n) => Math.hypot(n.x - x, n.y - y) < 22);
+      setHoverId(hit?.id || null);
+      canvas.style.cursor = hit ? 'pointer' : 'default';
+    };
+    const onClick = (ev: MouseEvent) => {
+      const rect = canvas.getBoundingClientRect();
+      const x = ev.clientX - rect.left;
+      const y = ev.clientY - rect.top;
+      const hit = simRef.current.find((n) => Math.hypot(n.x - x, n.y - y) < 22);
+      setSelected(hit || null);
+    };
+    canvas.addEventListener('mousemove', onMove);
+    canvas.addEventListener('click', onClick);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      window.removeEventListener('resize', resize);
+      canvas.removeEventListener('mousemove', onMove);
+      canvas.removeEventListener('click', onClick);
+    };
+  }, []);
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[#F5F1E8] text-[#2C3E50]">
+    <div className="maru-page space-y-5">
       <div className="space-y-1">
-        <div className="text-xs font-mono uppercase tracking-wider text-[#4A9B9D]">RAG & Multi-Capa Memory</div>
-        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3A5F]">
-          Las 4 Capas de Memoria Cognitiva
+        <div className="maru-eyebrow">Memoria local</div>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)]">
+          Memoria cognitiva
         </h1>
-        <p className="text-xs text-[#6B7F8C]">
-          MARU OS organiza tu información en PostgreSQL (estructurado), Qdrant (vectorial), Neo4j (grafo) y SQLite (caché Perú).
+        <p className="text-sm text-[var(--maru-text-muted)]">
+          Grafo vivo estilo Obsidian · relaciones, medicamentos y línea de tiempo de lo aprendido.
         </p>
       </div>
 
-      {/* 4 Memory Layers Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#1E3A5F] font-bold">
-            <Database size={16} className="text-[#1E3A5F]" />
-            <span>Capa 1: PostgreSQL</span>
-          </div>
-          <p className="text-xs text-[#6B7F8C]">Estructurado: Perfil ({profile.name}), Hábitos y Ajustes.</p>
+      <details className="maru-disclosure maru-panel px-5">
+        <summary>Capas de memoria</summary>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 pt-3">
+          {[
+            { icon: Database, title: 'Perfil local', body: `Usuario ${profile.name}, hábitos y ajustes` },
+            { icon: Layers, title: 'Vector / RAG', body: 'Conversaciones y bóveda documental' },
+            { icon: Network, title: 'Grafo', body: 'Alergias, medicamentos, ubicación' },
+            { icon: ShieldCheck, title: 'Perú offline', body: 'SENAMHI, IGP, MINSA, INEI' }
+          ].map((c) => (
+            <div key={c.title} className="p-3 rounded-xl bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]">
+              <div className="flex items-center gap-2 text-xs font-bold text-[var(--maru-text)] mb-1">
+                <c.icon size={14} /> {c.title}
+              </div>
+              <p className="text-xs text-[var(--maru-text-muted)]">{c.body}</p>
+            </div>
+          ))}
         </div>
+      </details>
 
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#4A9B9D] font-bold">
-            <Layers size={16} className="text-[#4A9B9D]" />
-            <span>Capa 2: Qdrant Vector</span>
+      <div className="maru-panel !p-0 overflow-hidden">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--maru-border-soft)]">
+          <div className="flex items-center gap-2 text-sm font-display font-semibold">
+            <Network className="text-[#B8924A]" size={18} /> Grafo de conocimiento
           </div>
-          <p className="text-xs text-[#6B7F8C]">Embeddings semánticos para búsqueda en conversaciones.</p>
+          <span className="text-xs font-mono text-[var(--maru-text-muted)]">
+            {nodes.length} nodos · {edges.length} enlaces
+          </span>
         </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#B8924A] font-bold">
-            <Network size={16} className="text-[#B8924A]" />
-            <span>Capa 3: Neo4j Grafo</span>
-          </div>
-          <p className="text-xs text-[#6B7F8C]">Relaciones entre Alergias, Medicamentos y Ubicación.</p>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm space-y-2">
-          <div className="flex items-center gap-2 text-xs font-mono text-[#5A8F6B] font-bold">
-            <ShieldCheck size={16} className="text-[#5A8F6B]" />
-            <span>Capa 4: SQLite Perú</span>
-          </div>
-          <p className="text-xs text-[#6B7F8C]">Caché offline SENAMHI, IGP, MINSA e INEI.</p>
+        <div className="relative">
+          <canvas ref={canvasRef} className="w-full block" />
+          {selected && (
+            <div className="absolute bottom-3 left-3 right-3 sm:right-auto sm:max-w-sm p-3 rounded-xl bg-black/70 text-white backdrop-blur border border-white/10">
+              <div className="text-[10px] uppercase font-mono tracking-wide" style={{ color: TYPE_COLOR[selected.type] }}>
+                {selected.type}
+              </div>
+              <div className="font-bold text-sm mt-0.5">{selected.label}</div>
+              {selected.details && <p className="text-xs text-white/70 mt-1">{selected.details}</p>}
+              <div className="text-[11px] text-white/50 mt-2">
+                Relaciones:{' '}
+                {edges
+                  .filter((e) => e.source === selected.id || e.target === selected.id)
+                  .map((e) => e.label)
+                  .join(', ') || 'ninguna'}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Interactive Knowledge Graph View */}
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E3DCCB] pb-3">
-          <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F]">
-            <Network className="text-[#B8924A]" size={18} />
-            <span>Grafo de Conocimiento (Neo4j View)</span>
-          </div>
-          <span className="text-xs font-mono text-[#6B7F8C]">{nodes.length} Nodos · {edges.length} Relaciones</span>
+      <div className="maru-panel space-y-3">
+        <div className="flex items-center gap-2 text-sm font-display font-semibold border-b border-[var(--maru-border-soft)] pb-2">
+          <Clock size={16} className="text-[#4A9B9D]" /> Línea de tiempo de lo aprendido
         </div>
-
-        <div className="bg-[#1E3A5F] p-6 rounded-xl text-white space-y-4">
-          <div className="text-xs font-mono text-[#4A9B9D]">Nodos Activos en Grafo:</div>
-          <div className="flex flex-wrap gap-3">
-            {nodes.map((node) => (
-              <div key={node.id} className="p-3 bg-[#2C3E50] border border-[#4A9B9D]/40 rounded-xl text-xs space-y-1">
-                <div className="font-bold text-[#B8924A] uppercase font-mono text-[10px]">{node.type}</div>
-                <div className="font-semibold text-white">{node.label}</div>
-                {node.details && <div className="text-[11px] text-[#F5F1E8]/70">{node.details}</div>}
-              </div>
-            ))}
-          </div>
-
-          <div className="text-xs font-mono text-[#4A9B9D] pt-2">Relaciones Traversadas:</div>
-          <div className="space-y-1 text-xs font-mono text-[#F5F1E8]/80">
-            {edges.map((edge) => {
-              const srcNode = nodes.find(n => n.id === edge.source);
-              const tgtNode = nodes.find(n => n.id === edge.target);
-              return (
-                <div key={edge.id} className="flex items-center gap-2">
-                  <span className="text-[#B8924A]">{srcNode?.label || edge.source}</span>
-                  <span className="text-white/40">──[{edge.label}]──►</span>
-                  <span className="text-[#4A9B9D]">{tgtNode?.label || edge.target}</span>
-                </div>
-              );
-            })}
-          </div>
+        <div className="relative pl-4 space-y-3 before:absolute before:left-1 before:top-1 before:bottom-1 before:w-px before:bg-[var(--maru-border-soft)]">
+          {timeline.map((item, i) => (
+            <div key={i} className="relative pl-4">
+              <span className="absolute left-[-3px] top-1.5 w-2 h-2 rounded-full bg-[#B8924A]" />
+              <div className="text-[10px] font-mono text-[var(--maru-text-muted)]">{item.at} · {item.agent}</div>
+              <div className="text-sm text-[var(--maru-text)]">{item.text}{item.text.length >= 120 ? '…' : ''}</div>
+            </div>
+          ))}
         </div>
       </div>
     </div>

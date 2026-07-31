@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Lock, User, Eye, EyeOff, ShieldAlert, KeyRound } from 'lucide-react';
 import { StorageService, mockHashPassword } from '../../services/storageService';
+import { MaruEnso } from '../brand/MaruEnso';
 
 interface LoginModalProps {
   isOpen: boolean;
@@ -38,30 +39,30 @@ export const LoginModal: React.FC<LoginModalProps> = ({
     }
 
     const hashedInput = mockHashPassword(password);
-    if (account.passwordHash === hashedInput || password === 'demo123') {
+    if (account.passwordHash === hashedInput) {
       setErrorMsg('');
       setFailedAttempts(0);
       onSuccess();
     } else {
       const nextFail = failedAttempts + 1;
       setFailedAttempts(nextFail);
-      setErrorMsg('Contraseña incorrecta.');
+      setErrorMsg(
+        nextFail >= 3
+          ? 'Contraseña incorrecta. Usa «Recuperar con frase semilla» si la olvidaste.'
+          : 'Contraseña incorrecta.'
+      );
     }
   };
 
   const account = StorageService.getAccount();
 
   return (
-    <div className="fixed inset-0 z-50 bg-[var(--maru-void)]/80 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[var(--maru-surface)] border border-[var(--maru-border)] rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-[0_24px_80px_rgba(0,0,0,0.55)] space-y-6 text-[var(--maru-text)]">
+    <div className="fixed inset-0 z-50 bg-[var(--maru-void)]/60 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="maru-panel !p-6 sm:!p-8 w-full max-w-md shadow-[var(--maru-shadow-md)] space-y-6 text-[var(--maru-text)]">
         <div className="text-center space-y-2">
-          <img
-            src="/logo.jpg"
-            alt="MARU OS Logo"
-            className="w-14 h-14 rounded-full object-cover border border-[var(--maru-gold)]/50 mx-auto shadow-[0_0_28px_rgba(212,175,55,0.35)] animate-maru-spin-slow"
-          />
-          <h2 className="text-2xl font-display font-bold text-white tracking-tight">
-            Iniciar Sesión
+          <MaruEnso size={56} showName={false} className="mx-auto" />
+          <h2 className="text-2xl font-display font-bold text-[var(--maru-text)] tracking-tight">
+            Iniciar sesión
           </h2>
           <p className="text-xs text-[var(--maru-text-muted)]">
             Tus datos nunca salen de este dispositivo.
@@ -81,7 +82,7 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="Ej: oliver_revilo"
                 required
-                className="w-full pl-10 pr-4 py-2.5 bg-[var(--maru-void)] border border-[var(--maru-border-soft)] rounded-xl text-sm text-white placeholder:text-[var(--maru-text-dim)] focus:outline-none focus:ring-1 focus:ring-[var(--maru-gold)]/60"
+                className="maru-field pl-10"
               />
             </div>
           </div>
@@ -98,12 +99,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="••••••••"
                 required
-                className="w-full pl-10 pr-10 py-2.5 bg-[var(--maru-void)] border border-[var(--maru-border-soft)] rounded-xl text-sm text-white placeholder:text-[var(--maru-text-dim)] focus:outline-none focus:ring-1 focus:ring-[var(--maru-gold)]/60"
+                className="maru-field pl-10 pr-10"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-3 text-[var(--maru-text-dim)] hover:text-white"
+                className="absolute right-2 top-1 text-[var(--maru-text-dim)] hover:text-[var(--maru-text)] p-2"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>

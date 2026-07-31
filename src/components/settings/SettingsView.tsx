@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
   ShieldCheck,
   Flame,
@@ -7,14 +7,32 @@ import {
   Download,
   Trash2,
   AlertTriangle,
-  Mail
+  Mail,
+  Cpu,
+  Users,
+  RefreshCw,
+  Zap,
+  Scale,
+  Eye,
+  Cloud
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
-import { AppSettings } from '../../types';
+import { AppSettings, AgentId } from '../../types';
+import { ApiService, ModelsResponse } from '../../services/apiService';
+import { AGENTS_CATALOG } from '../../data/agentsData';
+import { useEngineConfig } from '../../context/EngineConfigContext';
 
 interface SettingsViewProps {
   onWipeData: () => void;
 }
+
+/** Los 4 modelos locales seleccionables en modo Manual */
+const SELECTABLE_MODELS: { id: string; label: string; desc: string; icon: React.ReactNode }[] = [
+  { id: 'gemma4:e2b-mlx', label: 'Gemma 4 · E2B (MLX)', desc: 'Más rápido · por defecto', icon: <Zap size={16} className="text-[#FF9500]" /> },
+  { id: 'gemma4:e4b-mlx', label: 'Gemma 4 · E4B (MLX)', desc: 'Equilibrado entre velocidad y calidad', icon: <Scale size={16} className="text-[#007AFF]" /> },
+  { id: 'gemma4:12b-mlx', label: 'Gemma 4 · 12B (MLX)', desc: 'Visión y código avanzado', icon: <Eye size={16} className="text-[#5856D6]" /> },
+  { id: 'gemma4:31b-cloud', label: 'Gemma 4 · 31B (Cloud)', desc: 'Nube · máxima capacidad', icon: <Cloud size={16} className="text-[#8E8E93]" /> }
+];
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   const [settings, setSettings] = useState<AppSettings>(() => StorageService.getSettings());
@@ -24,6 +42,48 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   const [gmailEmail, setGmailEmail] = useState(() => localStorage.getItem('maru_gmail_email') || '');
   const [gmailAppPass, setGmailAppPass] = useState(() => localStorage.getItem('maru_gmail_app_pass') || '');
   const [gmailSaved, setGmailSaved] = useState(false);
+
+  // ── Motor de Inteligencia (Fase 2) ─────────────────────────────
+  const engineConfig = useEngineConfig();
+  const [models, setModels] = useState<ModelsResponse | null>(null);
+  const [checkingConnection, setCheckingConnection] = useState(false);
+  const [lastCheckResult, setLastCheckResult] = useState<'ok' | 'fail' | null>(null);
+
+  const fetchModels = useCallback(async () => {
+    const res = await ApiService.getModels();
+    setModels(res);
+    return res;
+  }, []);
+
+  useEffect(() => {
+    fetchModels();
+  }, [fetchModels]);
+
+  const handleTestConnection = async () => {
+    setCheckingConnection(true);
+    setLastCheckResult(null);
+    const res = await fetchModels();
+    setLastCheckResult(res?.ollamaConnected ? 'ok' : 'fail');
+    setCheckingConnection(false);
+    setTimeout(() => setLastCheckResult(null), 5000);
+  };
+
+  const ollamaConnected = models?.ollamaConnected ?? false;
+  const installedModels = models?.installedModels ?? [];
+
+  const isModelInstalled = (modelId: string): boolean => {
+    const catalogEntry = models?.catalog?.find((c) => c.id === modelId);
+    if (catalogEntry) return catalogEntry.installed;
+    return installedModels.includes(modelId);
+  };
+
+  const handleToggleAgent = (agentId: AgentId) => {
+    const current = engineConfig.enabledAgents;
+    const next = current.includes(agentId)
+      ? current.filter((id) => id !== agentId)
+      : [...current, agentId];
+    engineConfig.save({ enabledAgents: next });
+  };
 
   const account = StorageService.getAccount();
 
@@ -52,9 +112,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[var(--maru-bg)] text-[var(--maru-text)]">
+    <div className="maru-page space-y-6">
       <div className="space-y-1">
-        <div className="text-xs font-mono uppercase tracking-wider text-[var(--maru-text-muted)]">Configuración & Privacidad</div>
+        <div className="maru-eyebrow">Configuración y privacidad</div>
         <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)]">
           Ajustes del Sistema MARU OS
         </h1>
@@ -63,8 +123,172 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
         </p>
       </div>
 
+      {/* Motor de Inteligencia (Fase 2 · item 2.1) */}
+      <div className="maru-panel space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Cpu className="text-[#5856D6]" size={20} />
+          Motor de Inteligencia
+        </h3>
+
+        {/* Estado de Ollama en vivo */}
+        <div className="flex flex-wrap items-center justify-between gap-3 p-4 bg-[#F2F2F7] rounded-xl">
+          <div className="space-y-1">
+            <div className="font-bold text-sm text-[var(--maru-text)] flex items-center gap-2">
+              <span
+                className={`w-2.5 h-2.5 rounded-full ${ollamaConnected ? 'bg-[#34C759]' : 'bg-[#FF3B30]'}`}
+              />
+              {ollamaConnected ? '🟢 Ollama conectado' : '🔴 Ollama desconectado'}
+            </div>
+            <p className="text-xs text-[var(--maru-text-muted)]">
+              {ollamaConnected
+                ? `${installedModels.length} modelo${installedModels.length === 1 ? '' : 's'} disponible${installedModels.length === 1 ? '' : 's'} localmente`
+                : 'No se pudo contactar al servidor local (puerto 11434).'}
+            </p>
+            {ollamaConnected && installedModels.length > 0 && (
+              <div className="flex flex-wrap gap-1.5 pt-1">
+                {installedModels.map((m) => (
+                  <span key={m} className="px-2 py-0.5 bg-white rounded-md text-[10px] font-mono text-[var(--maru-text-muted)] border border-[var(--maru-border-soft)]">
+                    {m}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+          <button
+            onClick={handleTestConnection}
+            disabled={checkingConnection}
+            className="px-4 py-2 bg-white hover:bg-gray-50 border border-[var(--maru-border-soft)] text-[var(--maru-text)] text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={checkingConnection ? 'animate-spin' : ''} />
+            {checkingConnection
+              ? 'Probando...'
+              : lastCheckResult === 'ok'
+                ? '✓ Conexión verificada'
+                : lastCheckResult === 'fail'
+                  ? '✗ Sin conexión'
+                  : 'Probar conexión'}
+          </button>
+        </div>
+
+        {/* Selector de modo: Router vs Manual */}
+        <div className="space-y-2">
+          <div className="font-bold text-sm text-[var(--maru-text)]">Modo de selección de modelo</div>
+          <div className="grid grid-cols-2 gap-2 p-1 bg-[#F2F2F7] rounded-xl">
+            <button
+              onClick={() => engineConfig.save({ engineMode: 'router' })}
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                engineConfig.engineMode === 'router'
+                  ? 'bg-white text-[#5856D6] shadow-sm'
+                  : 'text-[var(--maru-text-muted)] hover:text-[var(--maru-text)]'
+              }`}
+            >
+              Router (Automático)
+              <div className="font-normal text-[10px] mt-0.5 opacity-70">Cada agente elige su mejor modelo</div>
+            </button>
+            <button
+              onClick={() => engineConfig.save({ engineMode: 'manual' })}
+              className={`py-2.5 px-3 rounded-lg text-xs font-bold transition-all ${
+                engineConfig.engineMode === 'manual'
+                  ? 'bg-white text-[#5856D6] shadow-sm'
+                  : 'text-[var(--maru-text-muted)] hover:text-[var(--maru-text)]'
+              }`}
+            >
+              Manual
+              <div className="font-normal text-[10px] mt-0.5 opacity-70">Un solo modelo para todos los agentes</div>
+            </button>
+          </div>
+        </div>
+
+        {/* Selector de modelo fijo (solo en modo Manual) */}
+        {engineConfig.engineMode === 'manual' && (
+          <div className="space-y-2">
+            <div className="font-bold text-sm text-[var(--maru-text)]">Modelo local fijo</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              {SELECTABLE_MODELS.map((model) => {
+                const isSelected = engineConfig.manualModel === model.id;
+                const installed = isModelInstalled(model.id);
+                return (
+                  <button
+                    key={model.id}
+                    onClick={() => engineConfig.save({ manualModel: model.id })}
+                    className={`p-3 rounded-xl border text-left transition-all ${
+                      isSelected
+                        ? 'border-[#5856D6] bg-[#5856D6]/5 shadow-sm'
+                        : 'border-[var(--maru-border-soft)] bg-[#F2F2F7] hover:border-[#5856D6]/40'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2 font-bold text-xs text-[var(--maru-text)]">
+                        {model.icon}
+                        {model.label}
+                      </div>
+                      <span
+                        className={`w-2 h-2 rounded-full shrink-0 ${installed ? 'bg-[#34C759]' : 'bg-[#E5E5EA]'}`}
+                        title={installed ? 'Instalado en Ollama' : 'No detectado en Ollama'}
+                      />
+                    </div>
+                    <div className="text-[11px] text-[var(--maru-text-muted)] mt-1">{model.desc}</div>
+                    <div className="text-[10px] font-mono text-[var(--maru-text-muted)] mt-1 opacity-70">{model.id}</div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Especialistas Activos (Fase 2 · item 2.2) */}
+      <div className="maru-panel space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Users className="text-[#007AFF]" size={20} />
+          Especialistas Activos
+        </h3>
+        <p className="text-xs text-[var(--maru-text-muted)]">
+          Activa o desactiva a los 7 especialistas de MARU. Los agentes desactivados no participarán del enrutado ni de los paneles.
+        </p>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          {AGENTS_CATALOG.map((agent) => {
+            const enabled = engineConfig.enabledAgents.includes(agent.id);
+            return (
+              <div
+                key={agent.id}
+                className="flex items-center justify-between gap-3 p-3 bg-[#F2F2F7] rounded-xl"
+              >
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="w-9 h-9 rounded-[10px] flex items-center justify-center text-white font-display font-bold shrink-0"
+                    style={{ backgroundColor: agent.colorPrimary, opacity: enabled ? 1 : 0.4 }}
+                  >
+                    {agent.name[0]}
+                  </div>
+                  <div className="min-w-0">
+                    <div className={`font-bold text-sm truncate ${enabled ? 'text-[var(--maru-text)]' : 'text-[var(--maru-text-muted)]'}`}>
+                      {agent.name}
+                    </div>
+                    <div className="text-[11px] text-[var(--maru-text-muted)] truncate">{agent.specialty}</div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => handleToggleAgent(agent.id)}
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+                    enabled ? 'bg-[#34C759]' : 'bg-[#E5E5EA]'
+                  }`}
+                >
+                  <div
+                    className={`w-5 h-5 bg-white rounded-full shadow transition-transform ${
+                      enabled ? 'translate-x-6' : 'translate-x-0'
+                    }`}
+                  />
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Privacidad & Modo Efímero */}
-      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+      <div className="maru-panel space-y-4">
         <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
           <ShieldCheck className="text-[#34C759]" size={20} />
           Privacidad & Modos de Memoria
@@ -124,10 +348,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
       </div>
 
       {/* Gmail Integración Real */}
-      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+      <details className="maru-disclosure maru-panel px-6">
+        <summary>Conexión con Gmail</summary>
+        <div className="pt-3 space-y-4">
         <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
           <Mail className="text-[#FF3B30]" size={20} />
-          Conexión con Gmail (Lectura & Borradores)
+          Configuración avanzada de correo
         </h3>
         <p className="text-xs text-[var(--maru-text-muted)]">
           Ingresa tus credenciales o contraseña de aplicación (App Password de 16 dígitos de Google) para autorizar la lectura de notificaciones en segundo plano y la creación de borradores directos.
@@ -166,7 +392,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
             {gmailSaved ? '✓ Credenciales Guardadas Localmente' : 'Guardar Credenciales Gmail'}
           </button>
         </div>
-      </div>
+        </div>
+      </details>
 
       {/* Account & Recovery Phrase */}
       <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">

@@ -9,6 +9,8 @@ import { AGENTS_CATALOG } from '../../data/agentsData';
 import { AudioService } from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
 import { ApiService } from '../../services/apiService';
+import { useEngineConfig } from '../../context/EngineConfigContext';
+import { AGENT_VOICE_PROFILES } from '../../data/agentVoices';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -44,13 +46,26 @@ export const ChatView: React.FC<ChatViewProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [attachedFile, setAttachedFile] = useState<FileAttachment | null>(null);
   const [speakingMsgId, setSpeakingMsgId] = useState<string | null>(null);
+  const [audioLevel, setAudioLevel] = useState(0);
   const [autoAgent, setAutoAgent] = useState(true);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const activeAudioRef = useRef<HTMLAudioElement | null>(null);
 
-  // Current agent data
-  const currentAgent = AGENTS_CATALOG.find((a) => a.id === activeAgentId) || AGENTS_CATALOG[0];
+  // Pulso de nivel de audio (micrófono o TTS) para animación al hablar
+  useEffect(() => {
+    AudioService.registerAudioLevelCallback((level) => setAudioLevel(level));
+    return () => AudioService.registerAudioLevelCallback(() => undefined);
+  }, []);
+
+  // Motor configurable (Fase 2): manual = un solo modelo para todos; router = enrutado automático
+  const { engineMode, manualModel, enabledAgents } = useEngineConfig();
+
+  // Current agent data (solo agentes activos)
+  const currentAgent =
+    AGENTS_CATALOG.find((a) => a.id === activeAgentId && enabledAgents.includes(a.id)) ||
+    AGENTS_CATALOG.find((a) => enabledAgents.includes(a.id)) ||
+    AGENTS_CATALOG[0];
 
   // Messages for the currently active agent
   const messages = useMemo(() => messagesMap[activeAgentId] || [], [messagesMap, activeAgentId]);
@@ -120,18 +135,19 @@ export const ChatView: React.FC<ChatViewProps> = ({
     StorageService.clearAgentMessages(activeAgentId);
   }, [activeAgentId]);
 
-  // Microphone
-  const handleToggleMic = () => {
+  // Micrófono: Whisper local (/stt) si hay backend; si no, Web Speech es-PE
+  const handleToggleMic = async () => {
     if (isListening) {
       AudioService.stopListening();
       setIsListening(false);
     } else {
       setIsListening(true);
-      AudioService.initSpeechRecognition(
+      const mode = await AudioService.startWhisperOrSpeech(
         (transcript) => setInputText(transcript),
+        () => setIsListening(false),
         () => setIsListening(false)
       );
-      AudioService.startListening();
+      if (!mode) setIsListening(false);
     }
   };
 
@@ -143,17 +159,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
     reader.onload = (event) => {
       const base64 = event.target?.result as string;
       let fileType: FileAttachment['type'] = 'image';
-      if (file.type.includes('pdf')) fileType = 'pdf';
-      else if (file.type.includes('sheet') || file.name.endsWith('.csv') || file.name.endsWith('.xlsx')) fileType = 'excel';
+      if (file.type.includes('pdf') || file.name.toLowerCase().endsWith('.pdf')) fileType = 'pdf';
+      else if (file.type.includes('sheet') || file.name.endsWith('.xlsx')) fileType = 'excel';
+      else if (file.type.includes('csv') || file.name.endsWith('.csv') || file.type.startsWith('text/') || /\.(txt|md|json|log)$/i.test(file.name)) fileType = 'text';
       else if (file.type.includes('audio')) fileType = 'audio';
+      else if (!file.type.startsWith('image/')) fileType = 'text';
       setAttachedFile({
         name: file.name, type: fileType,
-        mimeType: file.type || 'image/png',
+        mimeType: file.type || (fileType === 'pdf' ? 'application/pdf' : 'text/plain'),
         dataBase64: base64,
-        sizeFormatted: `${(file.size / 1024).toFixed(1)} KB`
+        sizeFormatted: file.size > 1024 * 1024
+          ? `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+          : `${(file.size / 1024).toFixed(1)} KB`
       });
     };
     reader.readAsDataURL(file);
+    // Permitir re-seleccionar el mismo archivo
+    e.target.value = '';
   };
 
   // Send message
@@ -171,12 +193,22 @@ export const ChatView: React.FC<ChatViewProps> = ({
     setGeneratingAgents(prev => new Set(prev).add(targetAgentId));
 
     if (!overridePrompt) {
+      // Mantener dataBase64 en imágenes (preview); omitirlo en PDFs/docs grandes
+      const storedAttachment = currentAttachment
+        ? {
+            ...currentAttachment,
+            dataBase64:
+              currentAttachment.type === 'image' && (currentAttachment.dataBase64?.length || 0) < 2_500_000
+                ? currentAttachment.dataBase64
+                : undefined
+          }
+        : undefined;
       const userMsg: ChatMessage = {
         id: `msg-usr-${Date.now()}`,
         timestamp: new Date().toLocaleTimeString('es-PE', { hour: '2-digit', minute: '2-digit' }),
         sender: 'user',
         content: userMsgText || (currentAttachment ? `[Archivo: ${currentAttachment.name}]` : ''),
-        fileAttachment: currentAttachment ? { ...currentAttachment, dataBase64: undefined } : undefined
+        fileAttachment: storedAttachment
       };
       addMessage(targetAgentId, userMsg);
     }
@@ -206,6 +238,8 @@ export const ChatView: React.FC<ChatViewProps> = ({
         userProfile,
         healthProfile,
         locationProfile,
+        engineMode,
+        manualModel: engineMode === 'manual' ? manualModel : undefined,
         fileAttachment: currentAttachment as unknown as { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string },
         onUpdate: (content: string) => {
           setMessagesMap(prev => {
@@ -282,18 +316,30 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
     if (speakingMsgId === msg.id) {
       setSpeakingMsgId(null);
+      setAudioLevel(0);
     } else {
       setSpeakingMsgId(msg.id);
-      // Attempt TTS first
-      const ttsVoice = currentAgent.voiceTone || 'es-PE-CamilaNeural';
-      const audio = await ApiService.playTTS(msg.content, ttsVoice);
+      // Kipu: no leer código crudo — monólogo breve sobre la acción
+      const speakContent =
+        msg.agentId === 'kipu' && /```/.test(msg.content)
+          ? msg.content
+              .replace(/```[\s\S]*?```/g, '')
+              .trim() || 'Listo. Revisé el código y dejé los cambios listos en el editor.'
+          : msg.content;
+      const agentForVoice = (msg.agentId || activeAgentId) as AgentId;
+      const ttsVoice = AGENT_VOICE_PROFILES[agentForVoice]?.edgeVoice || 'es-PE-CamilaNeural';
+      const audio = await ApiService.playTTS(speakContent, ttsVoice);
       if (!audio) {
-        AudioService.speakText(msg.content, msg.agentId, () => setSpeakingMsgId(null));
+        AudioService.speakText(speakContent, msg.agentId || activeAgentId, () => {
+          setSpeakingMsgId(null);
+          setAudioLevel(0);
+        });
       } else {
         activeAudioRef.current = audio;
         audio.onended = () => {
           setSpeakingMsgId(null);
           activeAudioRef.current = null;
+          setAudioLevel(0);
         };
       }
     }
@@ -306,37 +352,43 @@ export const ChatView: React.FC<ChatViewProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-white text-[var(--maru-text)] relative overflow-hidden">
-      {/* Header — clear glassmorphism */}
-      <div className="bg-white/80 backdrop-blur-xl border-b border-[var(--maru-border-soft)] px-6 py-4 flex items-center justify-between shrink-0 z-10">
+    <div className="flex flex-col h-full bg-[var(--maru-read-bg)] text-[var(--maru-text)] relative overflow-hidden">
+      <div className="bg-white/95 backdrop-blur-xl border-b border-[var(--maru-border-soft)] px-4 sm:px-6 py-3 flex items-center justify-between gap-3 shrink-0 z-10">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-display font-bold text-lg shadow-sm"
-            style={{ backgroundColor: currentAgent.colorAccent || currentAgent.colorPrimary }}
+            className="w-10 h-10 rounded-[10px] flex items-center justify-center text-white font-display font-bold text-lg shadow-sm transition-transform duration-75"
+            style={{
+              backgroundColor: currentAgent.colorPrimary || 'var(--maru-primary)',
+              transform: speakingMsgId || isListening ? `scale(${1 + audioLevel * 0.22})` : undefined,
+              boxShadow:
+                speakingMsgId || isListening
+                  ? `0 0 ${8 + audioLevel * 22}px ${currentAgent.colorAccent}66`
+                  : undefined
+            }}
           >
             {currentAgent.name[0]}
           </div>
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="font-display font-bold text-lg text-[var(--maru-text)]">{currentAgent.name}</h2>
-              <span className="text-xs px-2 py-0.5 rounded-md font-mono bg-[#007AFF]/10 text-[#007AFF] font-medium">
+              <span className="maru-chip hidden sm:inline-flex">
                 {currentAgent.specialty}
               </span>
             </div>
-            <p className="text-xs text-[var(--maru-text-muted)] font-sans">&ldquo;{currentAgent.catchphrase}&rdquo;</p>
+            <p className="hidden sm:block text-xs text-[var(--maru-text-muted)] font-sans">&ldquo;{currentAgent.catchphrase}&rdquo;</p>
           </div>
         </div>
 
         <div className="flex items-center gap-2">
           <button
             onClick={() => setAutoAgent(!autoAgent)}
-            className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
+            className={`min-h-10 px-3 py-1.5 rounded-[10px] text-[11px] font-mono transition-colors border ${
               autoAgent
-                ? 'bg-[var(--maru-gold)]/20 text-[var(--maru-gold)] border-[var(--maru-gold)]/40'
+                ? 'bg-[var(--maru-primary-soft)] text-[var(--maru-primary)] border-[var(--maru-primary)]/30'
                 : 'bg-transparent text-[var(--maru-text-muted)] border-[var(--maru-border-soft)]'
             }`}
           >
-            {autoAgent ? 'Auto-Router ON' : 'Agente Fijo'}
+            {autoAgent ? 'Enrutado automático' : 'Agente fijo'}
           </button>
           {messages.length > 0 && (
             <button
@@ -351,12 +403,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Messages — warm reading surface for long-form clarity */}
-      <div className="flex-1 overflow-y-auto maru-read-scroll p-4 sm:p-6 space-y-6">
+      <div className="flex-1 overflow-y-auto maru-read-scroll p-4 sm:p-6">
+        <div className="mx-auto max-w-3xl space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto py-12">
             <div
-              className="w-16 h-16 rounded-full text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg"
-              style={{ backgroundColor: currentAgent.colorAccent || currentAgent.colorPrimary }}
+              className="w-16 h-16 rounded-2xl text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg bg-[var(--maru-primary)]"
             >
               {currentAgent.name[0]}
             </div>
@@ -373,7 +425,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <button
                   key={i}
                   onClick={() => setInputText(prompt)}
-                  className="p-3 bg-[#F9FAFB] border border-[#E5E5EA] rounded-2xl text-xs text-left hover:bg-[#F2F2F7] hover:text-[#1C1C1E] transition-all"
+                  className="min-h-10 p-3 bg-white border border-[var(--maru-border)] rounded-[10px] text-sm text-left hover:bg-[var(--maru-primary-soft)] hover:border-[var(--maru-primary)] transition-all"
                 >
                   &ldquo;{prompt}&rdquo;
                 </button>
@@ -397,36 +449,52 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 )}
 
                 <div
-                  className={`max-w-2xl rounded-[1.25rem] p-3 sm:p-4 shadow-sm space-y-2 ${
+                  className={`max-w-[min(100%,46rem)] rounded-[var(--maru-radius)] p-3 sm:p-4 space-y-2 ${
                     isUser
-                      ? 'bg-[#007AFF] text-white rounded-br-sm'
-                      : 'bg-[#F2F2F7] text-[var(--maru-text)] rounded-bl-sm'
+                      ? 'bg-[var(--maru-primary)] text-white rounded-br-sm'
+                      : 'bg-white border border-[var(--maru-border-soft)] text-[var(--maru-text)] rounded-bl-sm shadow-[var(--maru-shadow-sm)]'
                   }`}
                 >
                   {/* File attachment */}
                   {msg.fileAttachment && (
-                    <div className="p-2.5 rounded-xl bg-black/10 border border-white/20 flex items-center gap-3 text-xs">
-                      {msg.fileAttachment.type === 'image'
-                        ? <ImageIcon size={20} className="text-[#4A9B9D]" />
-                        : <FileText size={20} className="text-[#B8924A]" />}
-                      <div>
-                        <div className="font-bold">{msg.fileAttachment.name}</div>
-                        <div className="opacity-70 text-[10px]">{msg.fileAttachment.sizeFormatted}</div>
+                    <div className={`rounded-xl overflow-hidden text-xs ${isUser ? 'bg-black/15 border border-white/20' : 'bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]'}`}>
+                      {msg.fileAttachment.type === 'image' && msg.fileAttachment.dataBase64 ? (
+                        <img
+                          src={msg.fileAttachment.dataBase64}
+                          alt={msg.fileAttachment.name}
+                          className="max-h-52 w-full object-cover"
+                        />
+                      ) : null}
+                      <div className="p-2.5 flex items-center gap-3">
+                        {msg.fileAttachment.type === 'image'
+                          ? <ImageIcon size={18} className={isUser ? 'text-white/80' : 'text-[#4A9B9D]'} />
+                          : <FileText size={18} className={isUser ? 'text-white/80' : 'text-[#B8924A]'} />}
+                        <div className="min-w-0">
+                          <div className="font-bold truncate">{msg.fileAttachment.name}</div>
+                          <div className="opacity-70 text-[10px]">
+                            {msg.fileAttachment.sizeFormatted}
+                            {msg.fileAttachment.type === 'image' ? ' · Vista previa' : ' · Documento para RAG'}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   )}
 
                   {/* Thinking steps */}
                   {!isUser && msg.thinkingSteps && msg.thinkingSteps.length > 0 && (
-                    <div className="p-3 bg-[#F5F1E8] border border-[#E3DCCB] rounded-xl text-xs space-y-1 font-mono text-[#6B7F8C]">
-                      <div className="flex items-center gap-1.5 font-bold text-[#1E3A5F]">
+                    <details className="maru-disclosure bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)] rounded-[10px] px-3 text-xs font-mono text-[var(--maru-text-muted)]">
+                      <summary>
+                        <span className="flex items-center gap-1.5 font-bold text-[var(--maru-text)]">
                         <Brain size={14} className="text-[#4A9B9D] animate-pulse" />
-                        <span>Proceso Cognitivo</span>
-                      </div>
+                        Proceso cognitivo
+                        </span>
+                      </summary>
+                      <div className="pb-3 space-y-1">
                       {msg.thinkingSteps.map((step: string, idx: number) => (
                         <div key={idx} className="text-[11px] text-[#2C3E50]">{step}</div>
                       ))}
-                    </div>
+                      </div>
+                    </details>
                   )}
 
                   {/* Upgrade Request Card (Point 10) */}
@@ -476,7 +544,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   )}
 
                   {/* Content */}
-                  <div className={`text-sm leading-relaxed ${isUser ? 'text-white' : 'text-[#2C3E50]'}`}>
+                  <div className={`text-[15px] leading-7 ${isUser ? 'text-white' : 'text-[var(--maru-text)]'}`}>
                     {isUser ? (
                       <div className="whitespace-pre-wrap">{msg.content}</div>
                     ) : (
@@ -567,12 +635,23 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   <div className="flex items-center gap-2 text-xs text-[#6B7F8C] pl-1 pt-1">
                     <button
                       onClick={() => handleToggleSpeak(msg)}
-                      className="p-1 hover:text-[#1E3A5F] rounded"
+                      className={`p-1 hover:text-[#1E3A5F] rounded flex items-center gap-1 ${speakingMsgId === msg.id ? 'text-[#C0392B]' : ''}`}
                       title="Escuchar respuesta"
                     >
                       {speakingMsgId === msg.id
-                        ? <VolumeX size={14} className="text-[#C0392B]" />
+                        ? <VolumeX size={14} />
                         : <Volume2 size={14} />}
+                      {speakingMsgId === msg.id && (
+                        <span className="flex items-end gap-px h-3" aria-hidden>
+                          {[0.4, 0.9, 0.55].map((w, i) => (
+                            <span
+                              key={i}
+                              className="w-0.5 rounded-full bg-current"
+                              style={{ height: `${Math.max(25, audioLevel * 100 * w)}%` }}
+                            />
+                          ))}
+                        </span>
+                      )}
                     </button>
                     <button
                       onClick={() => removeMessage(activeAgentId, msg.id)}
@@ -610,26 +689,52 @@ export const ChatView: React.FC<ChatViewProps> = ({
         )}
 
         <div ref={messagesEndRef} />
+        </div>
       </div>
 
       {/* Input bar */}
-      <div className="p-4 bg-white/90 border-t border-[var(--maru-read-line)] shrink-0 z-10 space-y-2 backdrop-blur-sm">
+      <div className="p-3 sm:p-4 bg-white/95 border-t border-[var(--maru-read-line)] shrink-0 z-10 space-y-2 backdrop-blur-sm">
+        <div className="mx-auto max-w-3xl space-y-2">
         {attachedFile && (
-          <div className="flex items-center justify-between p-2 bg-[var(--maru-read-bg)] rounded-xl text-xs border border-[var(--maru-read-line)]">
-            <div className="flex items-center gap-2">
-              <FileText size={16} className="text-[var(--maru-gold-deep)]" />
-              <span className="font-bold">{attachedFile.name}</span>
-              <span className="text-[var(--maru-read-muted)]">({attachedFile.sizeFormatted})</span>
+          <div className="flex items-stretch gap-3 p-2 bg-[var(--maru-read-bg)] rounded-xl text-xs border border-[var(--maru-read-line)]">
+            {attachedFile.type === 'image' && attachedFile.dataBase64 ? (
+              <img
+                src={attachedFile.dataBase64}
+                alt={attachedFile.name}
+                className="w-14 h-14 rounded-lg object-cover shrink-0 border border-[var(--maru-border-soft)]"
+              />
+            ) : (
+              <div className="w-14 h-14 rounded-lg bg-white border border-[var(--maru-border-soft)] flex items-center justify-center shrink-0">
+                <FileText size={22} className="text-[var(--maru-gold-deep)]" />
+              </div>
+            )}
+            <div className="flex-1 min-w-0 flex flex-col justify-center">
+              <span className="font-bold truncate">{attachedFile.name}</span>
+              <span className="text-[var(--maru-read-muted)]">
+                {attachedFile.sizeFormatted}
+                {attachedFile.type === 'image'
+                  ? ' · Se procesará con OCR local'
+                  : ' · Se indexará en la bóveda RAG'}
+              </span>
             </div>
-            <button onClick={() => setAttachedFile(null)} className="text-[#C0392B] font-bold p-1">✕</button>
+            <button onClick={() => setAttachedFile(null)} className="text-[#C0392B] font-bold p-1 self-start" aria-label="Quitar adjunto">✕</button>
           </div>
         )}
 
         {isListening && (
-          <div className="flex items-center justify-center p-2 bg-[#C0392B]/10 rounded-xl text-xs border border-[#C0392B]/30 animate-pulse">
+          <div className="flex items-center justify-between gap-3 p-2.5 bg-[#C0392B]/10 rounded-xl text-xs border border-[#C0392B]/30">
             <div className="flex items-center gap-2 text-[#C0392B] font-bold">
               <span className="w-2.5 h-2.5 rounded-full bg-[#C0392B] animate-ping" />
-              Escuchando audio (Whisper-fast STT activo)...
+              Escuchando… (Whisper local o Web Speech)
+            </div>
+            <div className="flex items-end gap-0.5 h-5" aria-hidden>
+              {[0.35, 0.7, 1, 0.55, 0.85].map((w, i) => (
+                <span
+                  key={i}
+                  className="w-1 rounded-full bg-[#C0392B] transition-all duration-75"
+                  style={{ height: `${Math.max(20, audioLevel * 100 * w)}%` }}
+                />
+              ))}
             </div>
           </div>
         )}
@@ -668,7 +773,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             placeholder={`Escríbele a ${currentAgent.name}...`}
             disabled={generatingAgents.has(activeAgentId)}
-            className="flex-1 px-4 py-2.5 bg-[#F2F2F7] border border-transparent rounded-full text-sm text-[var(--maru-text)] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50"
+            className="maru-field flex-1"
           />
 
           {generatingAgents.has(activeAgentId) ? (
@@ -680,7 +785,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
                   return next;
                 });
               }}
-              className="p-2.5 bg-[#C0392B] hover:bg-red-700 text-white rounded-xl transition-colors shadow flex items-center gap-1 text-xs font-mono"
+              className="maru-btn-primary !bg-[var(--maru-danger)] !border-[var(--maru-danger)] px-3"
               title="Detener"
             >
               <Square size={16} />
@@ -690,11 +795,12 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <button
               onClick={handleSendMessage}
               disabled={!inputText.trim() && !attachedFile}
-              className="p-2.5 bg-[#007AFF] text-white disabled:opacity-40 rounded-full transition-colors shadow-sm"
+              className="maru-btn-primary px-3 disabled:opacity-40"
             >
               <Send size={18} />
             </button>
           )}
+        </div>
         </div>
       </div>
     </div>

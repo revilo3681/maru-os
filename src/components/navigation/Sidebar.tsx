@@ -5,7 +5,6 @@ import {
   Users,
   Brain,
   Calendar,
-  Repeat,
   Settings,
   Flame,
   Radio,
@@ -20,10 +19,14 @@ import {
   CloudRain,
   HeartPulse,
   Scale,
-  ShieldAlert
+  ShieldAlert,
+  Landmark,
+  Mail
 } from 'lucide-react';
 import { AgentId } from '../../types';
 import { ApiService } from '../../services/apiService';
+import { MaruEnso } from '../brand/MaruEnso';
+import { useEngineConfig } from '../../context/EngineConfigContext';
 
 interface SidebarProps {
   currentTab: string;
@@ -45,6 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
   const [ollamaActive, setOllamaActive] = useState<boolean | null>(null);
   const [modelsCount, setModelsCount] = useState<number>(0);
   const [isOfflineMode, setIsOfflineMode] = useState<boolean>(false);
+  const { enabledAgents } = useEngineConfig();
 
   useEffect(() => {
     let isMounted = true;
@@ -67,32 +71,60 @@ export const Sidebar: React.FC<SidebarProps> = ({
     };
   }, []);
 
-  const mainNavItems = [
-    { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
-    { id: 'chat', label: 'Chat Cognitivo', icon: MessageSquare },
-    { id: 'agents', label: 'Agentes (7)', icon: Users },
-    { id: 'memory', label: 'Memoria RAG', icon: Brain },
-    { id: 'calendar', label: 'Calendario', icon: Calendar },
-    { id: 'habits', label: 'Rutinas', icon: Repeat },
-    { id: 'notes', label: 'Bloc de Notas', icon: FileText },
-    { id: 'health', label: 'Salud (Aya)', icon: HeartPulse },
-    { id: 'legal', label: 'Legal (Inti)', icon: Scale },
-    { id: 'kipu', label: 'Desarrollo (Kipu)', icon: Code2 },
-    { id: 'pacha', label: 'Clima (Pacha)', icon: CloudRain },
-    { id: 'emergency', label: 'Emergencia (Tupac)', icon: ShieldAlert },
-    { id: 'settings', label: 'Ajustes', icon: Settings }
+  const groups = [
+    {
+      label: 'Principal',
+      items: [
+        { id: 'dashboard', label: 'Inicio', icon: LayoutDashboard },
+        { id: 'chat', label: 'Chat cognitivo', icon: MessageSquare },
+        { id: 'agents', label: 'Agentes', icon: Users },
+        { id: 'memory', label: 'Memoria', icon: Brain }
+      ]
+    },
+    {
+      label: 'Vida diaria',
+      items: [
+        { id: 'calendar', label: 'Calendario & Rutinas', icon: Calendar },
+        { id: 'mail', label: 'Correo', icon: Mail },
+        { id: 'notes', label: 'Notas', icon: FileText }
+      ]
+    }
   ];
+  const specialistItems = [
+    { id: 'health', label: 'Salud · Aya/Sumaq', icon: HeartPulse, agents: ['aya', 'sumaq'] as AgentId[] },
+    { id: 'legal', label: 'Legal · Inti', icon: Scale, agents: ['inti'] as AgentId[] },
+    { id: 'kipu', label: 'Desarrollo · Kipu', icon: Code2, agents: ['kipu'] as AgentId[] },
+    { id: 'pacha', label: 'Clima · Pacha', icon: CloudRain, agents: ['pacha'] as AgentId[] },
+    { id: 'emergency', label: 'Emergencia · Tupac', icon: ShieldAlert, agents: ['tupac'] as AgentId[] },
+    { id: 'yaku', label: 'Perú · Yaku', icon: Landmark, agents: ['yaku'] as AgentId[] }
+  ].filter((item) => item.agents.some((a) => enabledAgents.includes(a)));
+
+  const renderItem = (item: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) => {
+    const Icon = item.icon;
+    const isActive = currentTab === item.id;
+    return (
+      <button
+        key={item.id}
+        onClick={() => onSelectTab(item.id)}
+        title={item.label}
+        className={`w-full min-h-10 flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm text-left transition-colors ${
+          isActive
+            ? 'bg-[var(--maru-primary-soft)] text-[var(--maru-primary)] font-semibold'
+            : 'text-[var(--maru-text-muted)] hover:bg-[var(--maru-surface-muted)] hover:text-[var(--maru-text)]'
+        }`}
+      >
+        <Icon size={18} className="shrink-0" />
+        <span className="hidden md:block truncate">{item.label}</span>
+      </button>
+    );
+  };
 
   return (
-    <aside className="w-64 bg-[var(--maru-bg)] text-[var(--maru-text)] flex flex-col justify-between h-screen border-r border-[var(--maru-border-soft)] shrink-0 select-none overflow-y-auto">
-      <div>
-        <div className="p-5 border-b border-[var(--maru-border-soft)] flex items-center gap-3">
-          <img
-            src="/logo.jpg"
-            alt="MARU OS Logo"
-            className="w-10 h-10 rounded-full object-cover shadow-sm shrink-0 animate-maru-spin-slow"
-          />
-          <div>
+    <aside className="w-20 md:w-64 bg-[var(--maru-surface)] text-[var(--maru-text)] flex flex-col h-screen border-r border-[var(--maru-border-soft)] shrink-0 select-none overflow-y-auto">
+      <div className="flex-1">
+        <div className="p-4 md:p-5 border-b border-[var(--maru-border-soft)] flex items-center justify-center md:justify-start gap-3">
+          <MaruEnso size={40} showName={false} className="shrink-0" />
+          <div className="hidden md:block">
             <div className="font-display font-bold text-lg tracking-[0.1em] flex items-center gap-1 text-[var(--maru-text)]">
               MARU OS
             </div>
@@ -100,60 +132,58 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        <nav className="p-3 space-y-0.5">
-          {mainNavItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = currentTab === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => onSelectTab(item.id)}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-200 ${
-                  isActive
-                    ? 'bg-[var(--maru-gold)] text-white shadow-sm'
-                    : 'text-[var(--maru-text-muted)] hover:bg-black/5 hover:text-[var(--maru-text)] border border-transparent'
-                }`}
-              >
-                <Icon size={18} className={isActive ? 'text-white' : 'text-[var(--maru-text-dim)]'} />
-                <span className="font-sans">{item.label}</span>
-              </button>
-            );
-          })}
-
+        <nav className="p-3 space-y-4">
+          {groups.map(group => (
+            <section key={group.label}>
+              <div className="hidden md:block px-3 mb-1.5 text-[10px] font-mono uppercase tracking-[.15em] text-[var(--maru-text-dim)]">
+                {group.label}
+              </div>
+              <div className="space-y-1">{group.items.map(renderItem)}</div>
+            </section>
+          ))}
+          <details className="maru-disclosure hidden md:block">
+            <summary className="px-3 text-[var(--maru-text-muted)]">Especialistas</summary>
+            <div className="space-y-1 mt-1">{specialistItems.map(renderItem)}</div>
+          </details>
+          <div className="md:hidden space-y-1">{specialistItems.map(renderItem)}</div>
+          <section>
+            <div className="hidden md:block px-3 mb-1.5 text-[10px] font-mono uppercase tracking-[.15em] text-[var(--maru-text-dim)]">Sistema</div>
+            {renderItem({ id: 'settings', label: 'Ajustes', icon: Settings })}
+          </section>
           <button
             onClick={onLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 text-rose-400/90 hover:bg-rose-500/10 hover:text-rose-300 mt-2 border border-transparent hover:border-rose-500/25"
+            className="w-full min-h-10 flex items-center gap-3 px-3 py-2 rounded-[10px] text-sm text-[var(--maru-danger)] hover:bg-red-50"
+            title="Cerrar sesión"
           >
-            <LogOut size={18} />
-            <span>Cerrar Sesión</span>
+            <LogOut size={18} className="shrink-0" />
+            <span className="hidden md:block">Cerrar sesión</span>
           </button>
         </nav>
       </div>
 
-      <div className="p-4 border-t border-[var(--maru-border-soft)] space-y-2.5 text-xs font-mono bg-[var(--maru-void)]">
-        <div className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5 text-[11px] font-bold text-[var(--maru-text-muted)]">
+      <details className="maru-disclosure border-t border-[var(--maru-border-soft)] p-3 text-xs font-mono bg-[var(--maru-bg-elevated)]">
+        <summary className="px-1">
+          <span className="flex items-center gap-2 text-[var(--maru-text-muted)]">
             <Cpu size={14} className="text-[var(--maru-gold)]" />
-            <span>Ollama:</span>
+            <span className="hidden md:inline">Motor local</span>
           </span>
+          <span className="hidden md:inline">
           {ollamaActive === null ? (
-            <span className="text-[10px] text-[var(--maru-text-dim)] animate-pulse">Verificando...</span>
+            <span className="text-[10px] text-[var(--maru-text-dim)]">Verificando</span>
           ) : ollamaActive ? (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-400 text-[10px] font-bold border border-emerald-500/35">
-              <CheckCircle2 size={12} /> ON · {modelsCount} modelos
+            <span className="maru-chip maru-status-success">
+              <CheckCircle2 size={12} /> Activo · {modelsCount}
             </span>
           ) : (
-            <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-rose-500/15 text-rose-400 text-[10px] font-bold border border-rose-500/35">
-              <XCircle size={12} /> OFF
+            <span className="maru-chip maru-status-danger">
+              <XCircle size={12} /> Sin conexión
             </span>
           )}
-        </div>
+          </span>
+        </summary>
 
         {ollamaActive && (
-          <div className="space-y-1 pt-1">
-            <div className="text-[9px] text-[var(--maru-text-dim)] uppercase tracking-widest mb-1.5">
-              IAs Locales Activas
-            </div>
+          <div className="hidden md:block space-y-1 pt-2">
             {[
               { name: 'gemma4:e4b', ram: '9.6G', role: 'Cerebro diario' },
               { name: 'gemma4:12b', ram: '7.6G', role: 'Visión & Código' },
@@ -161,31 +191,24 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ].map((m) => (
               <div
                 key={m.name}
-                className="flex items-center justify-between px-2 py-1 rounded bg-[var(--maru-surface)]/80 border border-[var(--maru-border-soft)]"
+                className="flex items-center justify-between px-2 py-1.5 rounded-lg bg-[var(--maru-surface)] border border-[var(--maru-border-soft)]"
               >
                 <span className="flex items-center gap-1.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                  <span className="text-[var(--maru-text)]/80">{m.name}</span>
+                  <span className="text-[var(--maru-text-muted)]">{m.name}</span>
                 </span>
                 <span className="text-[var(--maru-text-dim)] text-[9px]">{m.ram}</span>
               </div>
             ))}
-            <div className="flex items-center justify-between px-2 py-1 rounded bg-[var(--maru-gold)]/10 border border-[var(--maru-gold)]/25 mt-1">
-              <span className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[var(--maru-gold)]" />
-                <span className="text-[var(--maru-gold)]/90">gemma4:31b-cloud</span>
-              </span>
-              <span className="text-[var(--maru-text-dim)] text-[9px]">Cloud</span>
-            </div>
           </div>
         )}
 
         <button
           onClick={() => setIsOfflineMode(!isOfflineMode)}
-          className={`w-full flex items-center justify-between px-2.5 py-1.5 rounded text-[11px] transition-colors border ${
+          className={`hidden md:flex mt-2 w-full items-center justify-between px-2.5 py-2 rounded-lg text-[11px] transition-colors border ${
             isOfflineMode
               ? 'bg-[var(--maru-gold)]/15 text-[var(--maru-gold)] border-[var(--maru-gold)]/35'
-              : 'bg-emerald-500/10 text-emerald-400/90 border-emerald-500/30'
+              : 'bg-emerald-50 text-[var(--maru-success)] border-emerald-200'
           }`}
         >
           <span className="flex items-center gap-1.5">
@@ -196,12 +219,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </button>
 
         {isEphemeralMode && (
-          <div className="flex items-center gap-2 px-2.5 py-1 rounded bg-[#C0392B]/20 text-[#C0392B] border border-[#C0392B]/40">
+          <div className="hidden md:flex items-center gap-2 px-2.5 py-1 rounded bg-red-50 text-[var(--maru-danger)] border border-red-200">
             <Flame size={12} className="animate-pulse" />
             <span className="font-semibold text-[10px]">Modo Efímero ON</span>
           </div>
         )}
-      </div>
+      </details>
     </aside>
   );
 };

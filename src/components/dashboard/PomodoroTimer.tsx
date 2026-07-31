@@ -59,45 +59,45 @@ export const PomodoroTimer: React.FC = () => {
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return (
-    <div className="bg-white border border-[var(--maru-border-soft)] p-5 rounded-2xl shadow-sm space-y-4">
+    <div className="maru-panel space-y-4">
       <div className="flex items-center justify-between border-b border-[var(--maru-border-soft)] pb-3">
         <div className="flex items-center gap-2 text-sm font-display font-semibold text-[var(--maru-text)]">
           <Timer className="text-[var(--maru-gold)]" size={18} />
           <span>Cronómetro Pomodoro</span>
         </div>
-        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
+        <span className="maru-chip maru-status-success">
           <CheckCircle size={12} />
           {completedCycles} ciclos hoy
         </span>
       </div>
 
-      <div className="flex justify-center gap-1 text-xs font-mono">
+      <div className="grid grid-cols-3 gap-1 text-xs font-mono bg-[var(--maru-surface-muted)] p-1 rounded-[10px]">
         <button
           onClick={() => switchMode('focus')}
-          className={`px-3 py-1 rounded-xl transition-colors ${
+          className={`min-h-10 px-2 py-1 rounded-lg transition-colors ${
             mode === 'focus'
               ? 'bg-[var(--maru-gold)]/10 text-[var(--maru-gold)] border border-[var(--maru-gold)]/20 font-semibold'
-              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
+              : 'text-[var(--maru-text-muted)] border border-transparent hover:bg-white'
           }`}
         >
           Enfoque (25m)
         </button>
         <button
           onClick={() => switchMode('shortBreak')}
-          className={`px-3 py-1 rounded-xl transition-colors ${
+          className={`min-h-10 px-2 py-1 rounded-lg transition-colors ${
             mode === 'shortBreak'
               ? 'bg-[#34C759]/10 text-[#34C759] border border-[#34C759]/20 font-semibold'
-              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
+              : 'text-[var(--maru-text-muted)] border border-transparent hover:bg-white'
           }`}
         >
           Descanso (5m)
         </button>
         <button
           onClick={() => switchMode('longBreak')}
-          className={`px-3 py-1 rounded-xl transition-colors ${
+          className={`min-h-10 px-2 py-1 rounded-lg transition-colors ${
             mode === 'longBreak'
               ? 'bg-[#FF9500]/10 text-[#FF9500] border border-[#FF9500]/20 font-semibold'
-              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
+              : 'text-[var(--maru-text-muted)] border border-transparent hover:bg-white'
           }`}
         >
           Largo (15m)

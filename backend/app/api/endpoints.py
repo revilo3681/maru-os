@@ -8,13 +8,17 @@ import logging
 import json
 
 from app.core.ollama import ollama_client
-from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter
+from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
+from app.services.knowledge_base import build_rag_context, list_documents
+from app.services import model_config
 from app.services.peru_data import PeruDataService
 from app.services.onboarding import AccountService
 from app.services.document_parser import DocumentParserService
+from app.services import document_vault
 from app.core.graph_store import graph_store
 from app.core.vector_store import vector_store
 import asyncio
+import base64
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +35,14 @@ class ChatRequest(BaseModel):
     healthProfile: Optional[Dict[str, Any]] = None
     locationProfile: Optional[Dict[str, Any]] = None
     fileAttachment: Optional[Dict[str, Any]] = None
+    # Motor configurable: override por request (si no se envían, manda la config persistida)
+    engineMode: Optional[str] = None       # 'manual' | 'router'
+    manualModel: Optional[str] = None      # p. ej. 'gemma4:e2b-mlx'
+
+class SaveConfigRequest(BaseModel):
+    engineMode: Optional[str] = None
+    manualModel: Optional[str] = None
+    enabledAgents: Optional[List[str]] = None
 
 class RegisterAccountRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=20)
@@ -42,6 +54,30 @@ class VerifySeedRequest(BaseModel):
 class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = "es-PE-CamilaNeural"
+
+class LegalUploadRequest(BaseModel):
+    name: str
+    mimeType: Optional[str] = "application/pdf"
+    type: Optional[str] = "pdf"
+    dataBase64: str
+    agentId: Optional[str] = "inti"
+    sizeFormatted: Optional[str] = None
+
+class PythonExecRequest(BaseModel):
+    code: str
+    timeout: Optional[int] = 8
+
+class MailSendRequest(BaseModel):
+    to: str
+    subject: str
+    body: str
+    gmailEmail: str
+    gmailAppPass: str
+
+class STTRequest(BaseModel):
+    dataBase64: str
+    mimeType: Optional[str] = "audio/webm"
+    language: Optional[str] = "es"
 
 class Note(BaseModel):
     id: str
@@ -77,21 +113,76 @@ def get_user_lock(username: str) -> asyncio.Lock:
 
 @router.get("/health")
 async def health_check():
+    # Estado REAL de Ollama: conexión + modelos efectivamente instalados (/api/tags)
     ollama_ok = await ollama_client.check_health()
     local_models = await ollama_client.list_models() if ollama_ok else []
+    installed_names = [m.get("name", "") for m in local_models]
     return {
         "status": "ok",
         "app": "MARU OS Backend",
         "version": "1.0.0-cognitive",
         "ollamaLocalActive": ollama_ok,
-        "localModelsAvailable": local_models,
+        "localModelsAvailable": installed_names,
+        "modelCatalog": model_config.catalog_with_availability(installed_names),
+        "engineConfig": model_config.load_config(),
+        # Nota: los estados de DB no se verifican activamente todavía (asumidos)
         "dbs": {
-            "postgres": "ready",
-            "redis": "ready",
-            "qdrant": "ready",
-            "neo4j": "ready",
+            "postgres": "assumed (not checked)",
+            "redis": "assumed (not checked)",
+            "qdrant": "assumed (not checked)",
+            "neo4j": "assumed (not checked)",
             "sqlite": "ready"
-        }
+        },
+        "dbsVerified": False
+    }
+
+@router.get("/models")
+async def get_models():
+    """Estado real de Ollama + catálogo de modelos seleccionables con disponibilidad."""
+    ollama_ok = await ollama_client.check_health()
+    local_models = await ollama_client.list_models() if ollama_ok else []
+    installed_names = [m.get("name", "") for m in local_models]
+    return {
+        "ollamaConnected": ollama_ok,
+        "installedModels": installed_names,
+        "catalog": model_config.catalog_with_availability(installed_names),
+        "defaultModel": model_config.DEFAULT_MODEL_ID,
+    }
+
+@router.get("/config")
+async def get_engine_config():
+    """Configuración persistida del motor: modo (manual/router), modelo fijo y especialistas activos."""
+    return model_config.load_config()
+
+@router.post("/config")
+async def save_engine_config(req: SaveConfigRequest):
+    try:
+        config = model_config.save_config(
+            engine_mode=req.engineMode,
+            manual_model=req.manualModel,
+            enabled_agents=req.enabledAgents,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return {"status": "success", "config": config}
+
+@router.get("/knowledge")
+async def get_knowledge(agent: Optional[str] = None, q: Optional[str] = None):
+    """Base de Conocimiento Oficial: lista/busca documentos (filtros ?agent= y ?q=)."""
+    docs = list_documents(agent=agent, query=q)
+    return {
+        "total": len(docs),
+        "documents": [
+            {
+                "id": d["id"],
+                "title": d["title"],
+                "source": d["source"],
+                "agents": d["agents"],
+                "keywords": d["keywords"],
+                "body": d["body"],
+            }
+            for d in docs
+        ],
     }
 
 @router.get("/agents")
@@ -138,7 +229,12 @@ async def verify_seed(req: VerifySeedRequest):
 @router.post("/chat")
 async def cognitive_chat(req: ChatRequest):
     has_file = bool(req.fileAttachment)
-    
+
+    # 0. Motor configurable: request > config persistida
+    engine_config = model_config.load_config()
+    engine_mode = req.engineMode if req.engineMode in model_config.VALID_ENGINE_MODES else engine_config["engineMode"]
+    manual_model_requested = req.manualModel or engine_config["manualModel"]
+
     # 1. Routing logic
     route_res = {}
     if req.manualAgent and req.agentId in AGENTS_METADATA:
@@ -155,9 +251,32 @@ async def cognitive_chat(req: ChatRequest):
         ram = route_res["ram_required"]
         reason = route_res["reason"]
 
+    # 1.b Resolver contra modelos REALMENTE instalados en Ollama
+    installed_models = await ollama_client.list_models()
+    installed_names = [m.get("name", "") for m in installed_models]
+
+    if engine_mode == "manual":
+        # Modo MANUAL: un modelo fijo para todos los agentes
+        model_name = model_config.resolve_model_name(manual_model_requested, installed_names)
+        catalog_entry = next(
+            (e for e in model_config.MODEL_CATALOG
+             if model_config.canonical_model_id(manual_model_requested) == e["id"]),
+            None,
+        )
+        ram = catalog_entry["ram"] if catalog_entry else ram
+        reason = f"{reason} | Modo manual: modelo fijo {model_name}"
+    else:
+        # Modo ROUTER: comportamiento automático actual, normalizando el nombre
+        model_name = model_config.resolve_model_name(model_name, installed_names)
+
     # 🚦 Interrupción por Confirmación de Consumo (Point 10):
-    # Si el router sugiere gemma4:12b-q4 y el usuario aún no lo ha autorizado para este mensaje:
-    needs_upgrade_approval = (model_name == "gemma4:12b-q4") and (not req.confirmUpgrade) and (not req.manualAgent)
+    # Solo aplica en modo router (en manual el usuario ya fijó su modelo):
+    needs_upgrade_approval = (
+        engine_mode == "router"
+        and model_config.canonical_model_id(model_name) == "gemma4:12b-mlx"
+        and (not req.confirmUpgrade)
+        and (not req.manualAgent)
+    )
     if needs_upgrade_approval:
         async def send_upgrade_request():
             yield json.dumps({
@@ -201,39 +320,74 @@ Todoist: Comprar víveres (Alta prioridad) | Revisar código de Kipu (Media prio
 Dile al usuario qué tiene pendiente de manera muy natural, si te lo pregunta directamente.
 """
 
-    system_prompt = f"""Eres {agent_info['name']}, el agente de {agent_info['specialty']} con alma de MARU OS.
-Frase característica: '{agent_info['phrase']}'.
+    # RAG oficial: recuperar documentos de la Base de Conocimiento filtrados por
+    # el agente activo e inyectarlos como fuentes verificables (100% offline).
+    rag_context = build_rag_context(req.prompt, agent_id=agent_id, limit=3)
+    if rag_context:
+        reason += " + [Base de Conocimiento Oficial consultada]"
+
+    # Bóveda documental del usuario (contratos, PDFs, fotos OCR indexadas)
+    vault_context = document_vault.build_vault_context(req.prompt, agent_id=agent_id, limit=3)
+    if vault_context:
+        reason += " + [Bóveda documental consultada]"
+
+    agent_persona = get_agent_system_prompt(agent_id)
+
+    system_prompt = f"""{agent_persona}
+
 Hablas de forma empática, cálida y directa a {user_name} en {city}.
 Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].{context_bullet}
 Si el usuario pregunta por comidas, medicamentos o salud, valida estrictamente las alergias.
 {memory_context}
 {agenda_context}
+{rag_context}
+{vault_context}
 Responde en idioma Español con calidez humana."""
 
-    # 4. Procesar archivo adjunto (PDF / OCR) si existe
+    # 4. Procesar archivo adjunto (PDF / OCR / texto) si existe
     extracted_text = ""
+    extract_kind = ""
+    attachment_name = ""
     if has_file and req.fileAttachment.get("dataBase64"):
-        import base64
-        
         file_data = req.fileAttachment["dataBase64"].split(",")[-1]
         file_bytes = base64.b64decode(file_data)
         file_type = req.fileAttachment.get("type", "")
-        
-        try:
-            if DocumentParserService.is_pdf(file_type) or file_type == "pdf":
-                extracted_text = await DocumentParserService.parse_pdf(file_bytes)
-            elif DocumentParserService.is_image(file_type) or file_type == "image":
-                extracted_text = await DocumentParserService.parse_image(file_bytes)
-            else:
-                extracted_text = f"[Archivo no soportado: {file_type}]"
-        except Exception as e:
-            logger.error(f"Error procesando adjunto: {e}")
-            extracted_text = f"[Error procesando el archivo: {e}]"
-            
+        mime_type = req.fileAttachment.get("mimeType", "") or req.fileAttachment.get("mime_type", "")
+        attachment_name = req.fileAttachment.get("name", "adjunto")
+        extract_kind, extracted_text = await DocumentParserService.extract(
+            file_bytes,
+            file_type=file_type,
+            mime_type=mime_type,
+            filename=attachment_name,
+        )
+        # Indexar en bóveda para consultas futuras (RAG por agente)
+        if extracted_text and not extracted_text.startswith("[") and extract_kind in ("pdf", "image", "text"):
+            try:
+                document_vault.index_document(
+                    name=attachment_name,
+                    text=extracted_text,
+                    agent_id=agent_id,
+                    mime_type=mime_type or file_type or "application/octet-stream",
+                    source="chat",
+                )
+                # Mejor esfuerzo: también a Qdrant si está disponible
+                await vector_store.add_memory(
+                    f"vault_{agent_id}_{attachment_name}",
+                    extracted_text[:4000],
+                    {"agent": agent_id, "kind": "vault_doc", "name": attachment_name},
+                )
+            except Exception as e:
+                logger.warning(f"No se pudo indexar adjunto en bóveda: {e}")
+
     # Modify the prompt if text was extracted
     final_prompt = req.prompt
     if extracted_text:
-        final_prompt = f"El usuario adjuntó un documento con el siguiente texto extraído:\n\n---\n{extracted_text}\n---\n\nPregunta/Mensaje del usuario: {req.prompt}"
+        label = {"pdf": "PDF", "image": "imagen (OCR)", "text": "texto"}.get(extract_kind, "archivo")
+        final_prompt = (
+            f"El usuario adjuntó un {label} llamado «{attachment_name}» "
+            f"con el siguiente contenido extraído:\n\n---\n{extracted_text[:12000]}\n---\n\n"
+            f"Pregunta/Mensaje del usuario: {req.prompt or 'Analiza este archivo y dame un resumen útil.'}"
+        )
 
     # Setup multi-agent parameters
     is_multi_agent = route_res.get("is_multi_agent", False)
@@ -246,6 +400,15 @@ Responde en idioma Español con calidez humana."""
     async def generate():
         async with user_lock:
             current_sys_prompt = system_prompt
+
+            if extracted_text:
+                step_label = {
+                    "pdf": f"Leyendo PDF «{attachment_name}»...",
+                    "image": f"OCR rápido de imagen «{attachment_name}»...",
+                    "text": f"Procesando texto «{attachment_name}»...",
+                }.get(extract_kind, f"Procesando adjunto «{attachment_name}»...")
+                yield json.dumps({"thinking_step": step_label}).encode("utf-8") + b"\n"
+                yield json.dumps({"thinking_step": "Indexando en bóveda documental local..."}).encode("utf-8") + b"\n"
             
             # --- Tool Execution (Fase 8) ---
             if tools_needed:
@@ -322,7 +485,9 @@ Responde en idioma Español con calidez humana."""
             # Fallback si Ollama no devuelve nada
             if not has_content:
                 p_lower = req.prompt.lower()
-                if "maní" in p_lower or "comida" in p_lower or "plato" in p_lower or "comer" in p_lower:
+                if "dengue" in p_lower:
+                    full_content = f"{user_name}, según la norma oficial NTS N° 125-MINSA/2016/CDC-DGIESP: ante sospecha de dengue NO tomes ibuprofeno, aspirina ni ningún AINE (aumentan el riesgo de sangrado). Solo paracetamol para la fiebre, hidratación abundante y reposo.\n\nVigila los signos de alarma (dolor abdominal intenso, vómitos persistentes, sangrado) y acude al establecimiento de salud más cercano. Emergencias: SAMU 106."
+                elif "maní" in p_lower or "comida" in p_lower or "plato" in p_lower or "comer" in p_lower:
                     full_content = f"¡Hola {user_name}! He verificado tu perfil médico en Neo4j y tienes registrada una alergia severa al MANÍ. Si el plato contiene salsa de maní o frutos secos, con tu medicación actual ({meds}), te recomiendo evitarlo para prevenir anafilaxia.\n\n¿Deseas que te sugiera una alternativa culinaria peruana totalmente segura?"
                 elif "huaico" in p_lower or "sismo" in p_lower or "temblor" in p_lower:
                     full_content = f"⚠️ Alerta de prevención en {city}:\nNivel de riesgo por huaico: 85% (Alto).\nZona segura recomendada: I.E. 1234 - Nicolás de Piérola (a 500m).\n\nMantén la calma, ten tu mochila de emergencia lista y aléjate del cauce de las quebradas."
@@ -403,6 +568,124 @@ async def trigger_mock_gmail():
     mock_notifications.append(notif)
     return {"status": "triggered"}
 
+
+@router.post("/python/exec")
+async def exec_python(req: PythonExecRequest):
+    """Sandbox local para Kipu: ejecuta Python acotado y devuelve stdout/stderr."""
+    from app.services.tools import execute_python_tool
+    timeout = max(1, min(int(req.timeout or 8), 15))
+    output = await execute_python_tool(req.code or "", timeout=timeout)
+    return {"status": "ok", "output": output}
+
+
+@router.post("/mail/send")
+async def send_mail(req: MailSendRequest):
+    """Envía correo vía Gmail SMTP usando App Password guardada en el cliente."""
+    import smtplib
+    from email.mime.text import MIMEText
+
+    if not req.gmailEmail or not req.gmailAppPass:
+        raise HTTPException(status_code=400, detail="Credenciales Gmail requeridas (Ajustes)")
+    if not req.to or not req.subject:
+        raise HTTPException(status_code=400, detail="Destinatario y asunto requeridos")
+
+    msg = MIMEText(req.body or "", "plain", "utf-8")
+    msg["Subject"] = req.subject
+    msg["From"] = req.gmailEmail
+    msg["To"] = req.to
+
+    def _send():
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=20) as server:
+            server.login(req.gmailEmail, req.gmailAppPass.replace(" ", ""))
+            server.sendmail(req.gmailEmail, [req.to], msg.as_string())
+
+    try:
+        loop = asyncio.get_running_loop()
+        await loop.run_in_executor(None, _send)
+        return {"status": "sent", "to": req.to, "subject": req.subject}
+    except smtplib.SMTPAuthenticationError:
+        raise HTTPException(
+            status_code=401,
+            detail="Autenticación Gmail fallida. Usa una App Password (no la clave normal).",
+        )
+    except Exception as e:
+        logger.error(f"Error enviando correo: {e}")
+        raise HTTPException(status_code=502, detail=f"No se pudo enviar: {e}")
+
+
+@router.post("/stt")
+async def speech_to_text(req: STTRequest):
+    """
+    STT local opcional.
+    Intenta faster-whisper / openai-whisper si están instalados;
+    si no, responde 501 para que el frontend use Web Speech API.
+    """
+    import tempfile
+    import os as _os
+
+    if not req.dataBase64:
+        raise HTTPException(status_code=400, detail="audio requerido")
+
+    try:
+        raw = req.dataBase64.split(",")[-1]
+        audio_bytes = base64.b64decode(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="audio base64 inválido")
+
+    suffix = ".webm"
+    if req.mimeType and "wav" in req.mimeType:
+        suffix = ".wav"
+    elif req.mimeType and "mp4" in req.mimeType:
+        suffix = ".mp4"
+    elif req.mimeType and "ogg" in req.mimeType:
+        suffix = ".ogg"
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            tmp.write(audio_bytes)
+            tmp_path = tmp.name
+
+        text = ""
+        engine = "none"
+
+        # 1) faster-whisper
+        try:
+            from faster_whisper import WhisperModel  # type: ignore
+
+            model = WhisperModel("tiny", device="cpu", compute_type="int8")
+            segments, _info = model.transcribe(tmp_path, language=req.language or "es")
+            text = " ".join(seg.text.strip() for seg in segments).strip()
+            engine = "faster-whisper"
+        except Exception:
+            pass
+
+        # 2) openai-whisper
+        if not text:
+            try:
+                import whisper  # type: ignore
+
+                model = whisper.load_model("tiny")
+                result = model.transcribe(tmp_path, language=req.language or "es")
+                text = (result.get("text") or "").strip()
+                engine = "openai-whisper"
+            except Exception:
+                pass
+
+        if not text:
+            raise HTTPException(
+                status_code=501,
+                detail="Whisper no instalado. Usa Web Speech en el cliente.",
+            )
+
+        return {"status": "ok", "text": text, "engine": engine}
+    finally:
+        if tmp_path:
+            try:
+                _os.unlink(tmp_path)
+            except Exception:
+                pass
+
 @router.get("/notifications")
 async def get_notifications():
     # Return and clear
@@ -424,10 +707,65 @@ async def get_agenda():
         ]
     }
 
+@router.get("/legal/documents")
+async def list_legal_documents(agentId: Optional[str] = None):
+    """Lista documentos indexados en la bóveda local (sin chunks)."""
+    docs = document_vault.list_documents(agent_id=agentId)
+    return {"total": len(docs), "documents": docs}
+
+
 @router.post("/legal/upload")
-async def upload_legal_document():
-    # Simulador de upload y vectorización en Qdrant
-    return {"status": "success", "message": "Documento indexado correctamente en la Bóveda Legal."}
+async def upload_legal_document(req: LegalUploadRequest):
+    """Sube un PDF/imagen/texto, extrae contenido e indexa en la bóveda RAG local."""
+    if not req.dataBase64:
+        raise HTTPException(status_code=400, detail="dataBase64 requerido")
+
+    try:
+        raw = req.dataBase64.split(",")[-1]
+        file_bytes = base64.b64decode(raw)
+    except Exception:
+        raise HTTPException(status_code=400, detail="dataBase64 inválido")
+
+    if len(file_bytes) > 12 * 1024 * 1024:
+        raise HTTPException(status_code=400, detail="Archivo demasiado grande (máx. 12 MB)")
+
+    kind, text = await DocumentParserService.extract(
+        file_bytes,
+        file_type=req.type or "",
+        mime_type=req.mimeType or "",
+        filename=req.name,
+    )
+    if kind == "unsupported" or not text or text.startswith("[Error") or text.startswith("[Archivo"):
+        raise HTTPException(status_code=422, detail=text or "No se pudo leer el documento")
+
+    try:
+        meta = document_vault.index_document(
+            name=req.name,
+            text=text,
+            agent_id=req.agentId or "inti",
+            mime_type=req.mimeType or "application/pdf",
+            source="legal_vault",
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=str(e))
+
+    # Mejor esfuerzo hacia Qdrant
+    try:
+        await vector_store.add_memory(
+            f"legal_{meta['id']}",
+            text[:4000],
+            {"agent": req.agentId or "inti", "kind": "vault_doc", "name": req.name, "docId": meta["id"]},
+        )
+    except Exception as e:
+        logger.warning(f"Qdrant index skipped: {e}")
+
+    return {
+        "status": "success",
+        "message": "Documento indexado en la Bóveda Legal (RAG local).",
+        "document": meta,
+        "extractedChars": len(text),
+        "extractKind": kind,
+    }
 
 
 

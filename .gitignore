@@ -2,7 +2,11 @@ node_modules/
 build/
 dist/
 coverage/
+.playwright-cli/
+output/playwright/
 .DS_Store
 *.log
 .env*
 !.env.example
+backend/app/data/document_vault.json
+backend/app/data/maru_config.json

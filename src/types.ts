@@ -73,7 +73,7 @@ export interface Agent {
 
 export interface FileAttachment {
   name: string;
-  type: 'image' | 'pdf' | 'excel' | 'code' | 'audio' | 'video';
+  type: 'image' | 'pdf' | 'excel' | 'code' | 'audio' | 'video' | 'text';
   mimeType: string;
   url?: string;
   dataBase64?: string;

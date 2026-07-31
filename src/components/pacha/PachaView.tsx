@@ -1,8 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { CloudRain, Wind, Thermometer, AlertTriangle, Navigation, Map as MapIcon, Activity } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import {
+  CloudRain, Wind, Thermometer, AlertTriangle, Navigation,
+  Map as MapIcon, Activity, Leaf, Droplets
+} from 'lucide-react';
 import { ChatView } from '../chat/ChatView';
 import { UserProfile, HealthProfile, LocationProfile } from '../../types';
 import { ApiService } from '../../services/apiService';
+import { PERU_SEED_DATA } from '../../data/seedPeru';
 
 interface PachaViewProps {
   userProfile: UserProfile;
@@ -10,118 +14,164 @@ interface PachaViewProps {
   locationProfile: LocationProfile;
 }
 
+interface PeruContextData {
+  weather?: { temperatura?: string; sensacion?: string; humedad?: string };
+  huaico?: { riesgo?: string; actualizado?: string };
+  sismo?: { magnitud?: string; referencia?: string; profundidad?: string };
+}
+
+const FORECAST_DAYS = [
+  { day: 'Hoy', icon: '☀️', high: 23, low: 16, rain: 10 },
+  { day: 'Mañana', icon: '🌤', high: 22, low: 15, rain: 20 },
+  { day: 'Sáb', icon: '🌧', high: 19, low: 14, rain: 70 },
+  { day: 'Dom', icon: '⛅', high: 21, low: 15, rain: 35 },
+  { day: 'Lun', icon: '☀️', high: 24, low: 16, rain: 5 },
+  { day: 'Mar', icon: '🌤', high: 23, low: 16, rain: 15 },
+  { day: 'Mié', icon: '☁️', high: 20, low: 14, rain: 40 }
+];
+
 export const PachaView: React.FC<PachaViewProps> = ({ userProfile, healthProfile, locationProfile }) => {
-  const [peruData, setPeruData] = useState<any>(null);
+  const [peruData, setPeruData] = useState<PeruContextData | null>(null);
+  const city = locationProfile.city || 'Chosica';
+  const seedWeather = PERU_SEED_DATA.weatherMap[city] || PERU_SEED_DATA.weatherMap['Chosica'];
+  const huaico = PERU_SEED_DATA.huaicoMap[city] || PERU_SEED_DATA.huaicoMap['Chosica'];
 
   useEffect(() => {
     const loadData = async () => {
-      const data = await ApiService.getPeruData(locationProfile.city);
-      if (data) {
-        setPeruData(data);
-      }
+      const data = await ApiService.getPeruData(city);
+      if (data) setPeruData(data as PeruContextData);
     };
     loadData();
-  }, [locationProfile.city]);
+  }, [city]);
+
+  const aqi = seedWeather?.aqi ?? 45;
+  const aqiLabel = aqi <= 50 ? 'Bueno' : aqi <= 100 ? 'Moderado' : 'Dañino';
+  const aqiColor = aqi <= 50 ? 'text-emerald-600' : aqi <= 100 ? 'text-amber-600' : 'text-red-600';
+
+  const ecoTips = useMemo(
+    () => [
+      aqi > 80 ? 'Limita ejercicio intenso al aire libre hoy.' : 'Buen día para caminata o huerta urbana.',
+      (huaico?.riskPercent || 0) > 60
+        ? 'Evita quebradas; revisa desagües y rutas de evacuación.'
+        : 'Riesgo hidrológico controlado; aprovecha para riego eficiente.',
+      'Recoge agua de lluvia si hay pronóstico >50% el sábado.'
+    ],
+    [aqi, huaico]
+  );
+
+  // Heatmap cells — relative rain intensity by district mock
+  const heatCells = Array.from({ length: 48 }, (_, i) => {
+    const base = (huaico?.riskPercent || 30) / 100;
+    const v = Math.min(1, Math.abs(Math.sin(i * 0.7 + base * 3)) * 0.55 + base * 0.45);
+    return v;
+  });
 
   return (
-    <div className="flex h-full w-full bg-[#F5F1E8]">
-      {/* Left side: Pacha Chat */}
-      <div className="w-1/2 border-r border-[#2C3E50]/20 flex flex-col">
-        <ChatView 
-          activeAgentId="pacha" 
-          onSelectAgent={() => {}} 
+    <div className="flex flex-col xl:flex-row h-full w-full overflow-y-auto xl:overflow-hidden bg-[var(--maru-bg)]">
+      <div className="w-full xl:w-1/2 min-h-[620px] xl:min-h-0 border-b xl:border-b-0 xl:border-r border-[var(--maru-border-soft)] flex flex-col">
+        <ChatView
+          activeAgentId="pacha"
+          onSelectAgent={() => {}}
           userProfile={userProfile}
           healthProfile={healthProfile}
           locationProfile={locationProfile}
         />
       </div>
 
-      {/* Right side: Environment Dashboard */}
-      <div className="w-1/2 flex flex-col overflow-y-auto bg-white">
-        <div className="p-6 border-b border-[#2C3E50]/10 bg-gradient-to-br from-[#4A9B9D]/10 to-transparent">
+      <div className="w-full xl:w-1/2 flex flex-col overflow-y-auto bg-[var(--maru-surface)]">
+        <div className="p-5 border-b border-[var(--maru-border-soft)] bg-gradient-to-br from-[#4A9B9D]/15 to-transparent">
           <div className="flex items-center gap-3 text-[#1E3A5F]">
-            <CloudRain size={28} />
-            <h1 className="text-2xl font-serif font-bold">Monitor Ambiental</h1>
+            <CloudRain size={26} />
+            <div>
+              <h1 className="text-2xl font-display font-bold text-[var(--maru-text)]">Panel Pacha</h1>
+              <p className="text-xs text-[var(--maru-text-muted)] flex items-center gap-1">
+                <Navigation size={12} /> {city}, Perú · SENAMHI / IGP (offline seed)
+              </p>
+            </div>
           </div>
-          <p className="text-sm text-gray-500 mt-1 flex items-center gap-1">
-            <Navigation size={14} /> {locationProfile.city}, Perú
-          </p>
         </div>
 
-        <div className="p-6 space-y-6">
-          {/* Weather Grid */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="p-4 rounded-xl border border-[#4A9B9D]/20 bg-[#F5F1E8]/50 flex flex-col items-center justify-center text-center">
-              <Thermometer size={24} className="text-[#4A9B9D] mb-2" />
-              <div className="text-2xl font-bold text-[#2C3E50]">{peruData?.weather?.temperatura || '22°C'}</div>
-              <div className="text-xs text-gray-500 font-mono">Sensación: {peruData?.weather?.sensacion || '24°C'}</div>
+        <div className="p-5 space-y-5">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 rounded-xl border border-[var(--maru-border-soft)] bg-[var(--maru-surface-muted)] text-center">
+              <Thermometer size={18} className="mx-auto text-[#4A9B9D] mb-1" />
+              <div className="text-xl font-bold">{peruData?.weather?.temperatura || `${seedWeather?.temperature ?? 22}°C`}</div>
+              <div className="text-[10px] text-[var(--maru-text-muted)]">Temperatura</div>
             </div>
-            <div className="p-4 rounded-xl border border-[#4A9B9D]/20 bg-[#F5F1E8]/50 flex flex-col items-center justify-center text-center">
-              <Wind size={24} className="text-[#4A9B9D] mb-2" />
-              <div className="text-2xl font-bold text-[#2C3E50]">{peruData?.weather?.humedad || '85%'}</div>
-              <div className="text-xs text-gray-500 font-mono">Humedad (Llovizna)</div>
+            <div className="p-3 rounded-xl border border-[var(--maru-border-soft)] bg-[var(--maru-surface-muted)] text-center">
+              <Wind size={18} className="mx-auto text-[#4A9B9D] mb-1" />
+              <div className="text-xl font-bold">{peruData?.weather?.humedad || `${seedWeather?.humidity ?? 68}%`}</div>
+              <div className="text-[10px] text-[var(--maru-text-muted)]">Humedad</div>
             </div>
-          </div>
-
-          {/* Risk Alerts */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-[#1E3A5F] flex items-center gap-2">
-              <AlertTriangle size={18} className="text-[#B8924A]" />
-              Alertas Locales (Simuladas)
-            </h3>
-            
-            <div className="p-4 rounded-xl border border-red-200 bg-red-50 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-red-100 flex items-center justify-center shrink-0">
-                <AlertTriangle size={20} className="text-red-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-red-900 text-sm">Riesgo de Huaico - {locationProfile.city}</h4>
-                <p className="text-xs text-red-700 mt-1">
-                  Nivel de riesgo: {peruData?.huaico?.riesgo || 'Alto (85%)'}. Se recomienda identificar rutas de evacuación.
-                </p>
-                <div className="text-[10px] text-red-600 font-mono mt-2 flex items-center gap-1">
-                  <Activity size={12} /> Actualizado: {peruData?.huaico?.actualizado || 'Hace 10 min'}
-                </div>
-              </div>
+            <div className="p-3 rounded-xl border border-[var(--maru-border-soft)] bg-[var(--maru-surface-muted)] text-center">
+              <Droplets size={18} className="mx-auto text-[#4A9B9D] mb-1" />
+              <div className={`text-xl font-bold ${aqiColor}`}>{aqi}</div>
+              <div className="text-[10px] text-[var(--maru-text-muted)]">ICA · {aqiLabel}</div>
             </div>
-
-            <div className="p-4 rounded-xl border border-amber-200 bg-amber-50 flex items-start gap-4">
-              <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center shrink-0">
-                <Activity size={20} className="text-amber-600" />
-              </div>
-              <div>
-                <h4 className="font-bold text-amber-900 text-sm">Último Sismo (IGP)</h4>
-                <p className="text-xs text-amber-800 mt-1">
-                  Magnitud: {peruData?.sismo?.magnitud || '4.2'} - {peruData?.sismo?.referencia || 'Lima, Lima'}
-                </p>
-                <div className="text-[10px] text-amber-700 font-mono mt-2">
-                  Profundidad: {peruData?.sismo?.profundidad || '45 km'}
-                </div>
-              </div>
+            <div className="p-3 rounded-xl border border-[var(--maru-border-soft)] bg-[var(--maru-surface-muted)] text-center">
+              <AlertTriangle size={18} className="mx-auto text-[#B8924A] mb-1" />
+              <div className="text-xl font-bold">{huaico?.riskPercent ?? 0}%</div>
+              <div className="text-[10px] text-[var(--maru-text-muted)]">Huaico</div>
             </div>
           </div>
 
-          {/* Map Mock */}
-          <div className="mt-6">
-            <h3 className="font-bold text-[#1E3A5F] flex items-center gap-2 mb-3">
-              <MapIcon size={18} className="text-[#4A9B9D]" />
-              Mapa de Tráfico y Clima
+          <section className="space-y-2">
+            <h3 className="font-bold text-sm text-[var(--maru-text)]">Pronóstico 7 días</h3>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {FORECAST_DAYS.map((d) => (
+                <div key={d.day} className="min-w-[72px] p-2.5 rounded-xl border border-[var(--maru-border-soft)] bg-white text-center">
+                  <div className="text-[11px] font-bold text-[var(--maru-text-muted)]">{d.day}</div>
+                  <div className="text-lg my-1">{d.icon}</div>
+                  <div className="text-xs font-bold">{d.high}° / {d.low}°</div>
+                  <div className="text-[10px] text-[#4A9B9D]">{d.rain}% lluvia</div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="font-bold text-sm text-[var(--maru-text)] flex items-center gap-2">
+              <MapIcon size={16} className="text-[#4A9B9D]" /> Mapa de precipitación / calor
             </h3>
-            <div className="w-full h-48 bg-gray-200 rounded-xl overflow-hidden relative flex items-center justify-center border border-gray-300">
-              <img 
-                src="https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Relief_Map_of_Peru.png/600px-Relief_Map_of_Peru.png" 
-                alt="Mapa de Perú"
-                className="w-full h-full object-cover opacity-60"
-              />
-              <div className="absolute inset-0 bg-[#4A9B9D]/10"></div>
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 flex flex-col items-center">
-                <div className="w-4 h-4 bg-red-500 rounded-full animate-ping absolute"></div>
-                <div className="w-4 h-4 bg-red-600 rounded-full relative shadow-lg"></div>
-                <span className="bg-white/90 px-2 py-1 rounded text-xs font-bold shadow-sm mt-2 text-gray-800">
-                  {locationProfile.city}
-                </span>
+            <div className="rounded-xl border border-[var(--maru-border-soft)] overflow-hidden bg-[#1a3326] p-3">
+              <div className="grid grid-cols-8 gap-1">
+                {heatCells.map((v, i) => (
+                  <div
+                    key={i}
+                    className="aspect-square rounded-sm"
+                    style={{
+                      backgroundColor: `rgba(74, 155, 157, ${0.15 + v * 0.85})`,
+                      boxShadow: v > 0.7 ? 'inset 0 0 0 1px rgba(255,120,80,0.5)' : undefined
+                    }}
+                    title={`Intensidad ${(v * 100).toFixed(0)}%`}
+                  />
+                ))}
+              </div>
+              <div className="flex justify-between text-[10px] text-white/50 mt-2 font-mono">
+                <span>Bajo</span>
+                <span>{city}</span>
+                <span>Alto / calor</span>
               </div>
             </div>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="font-bold text-sm text-[var(--maru-text)] flex items-center gap-2">
+              <Leaf size={16} className="text-emerald-600" /> Recomendaciones ecológicas
+            </h3>
+            <ul className="space-y-2">
+              {ecoTips.map((t) => (
+                <li key={t} className="text-sm p-3 rounded-xl bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]">
+                  {t}
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="p-3 rounded-xl border border-amber-200 bg-amber-50 text-xs text-amber-900 flex gap-2">
+            <Activity size={14} className="shrink-0 mt-0.5" />
+            Último sismo IGP: {peruData?.sismo?.magnitud || PERU_SEED_DATA.sismoLatest.magnitude} ·{' '}
+            {peruData?.sismo?.referencia || PERU_SEED_DATA.sismoLatest.epicenter}
           </div>
         </div>
       </div>

@@ -1,4 +1,4 @@
-import { UserProfile, HealthProfile, LocationProfile, AgentId, Note, GmailDraftNotification } from '../types';
+import { UserProfile, HealthProfile, LocationProfile, AgentId, Note, GmailDraftNotification, UpgradeRequestInfo } from '../types';
 
 const API_BASE_URL = 'http://localhost:8000/api';
 const OLLAMA_DIRECT_URL = 'http://localhost:11434';
@@ -14,6 +14,56 @@ export interface CognitiveChatResponse {
   content: string;
   timestamp: string;
   voice?: string;
+}
+
+interface ModelUpgradeEvent {
+  reason: string;
+  recommended_model: string;
+  current_model: string;
+  ram_required: string;
+}
+
+// ── Base de Conocimiento Oficial (RAG) ──────────────────────────
+export interface KnowledgeDocument {
+  id: string;
+  title: string;
+  source: string;
+  agents: AgentId[];
+  keywords: string[];
+  body: string;
+}
+
+export interface KnowledgeResponse {
+  total: number;
+  documents: KnowledgeDocument[];
+}
+
+// ── Motor de modelos configurable ───────────────────────────────
+export type EngineMode = 'manual' | 'router';
+
+export interface ModelCatalogEntry {
+  id: string;
+  label: string;
+  ram: string;
+  role: string;
+  isCloud: boolean;
+  /** true si el modelo (o un alias equivalente) está realmente instalado en Ollama */
+  installed: boolean;
+  /** nombre real instalado en Ollama que se usará (p. ej. 'gemma4:e2b-q4') */
+  resolvedName: string;
+}
+
+export interface ModelsResponse {
+  ollamaConnected: boolean;
+  installedModels: string[];
+  catalog: ModelCatalogEntry[];
+  defaultModel: string;
+}
+
+export interface EngineConfig {
+  engineMode: EngineMode;
+  manualModel: string;
+  enabledAgents: AgentId[];
 }
 
 export const ApiService = {
@@ -65,6 +115,75 @@ export const ApiService = {
     };
   },
 
+  /** Base de Conocimiento Oficial: lista/busca documentos (filtros opcionales por agente y texto). */
+  async getKnowledge(agent?: AgentId, q?: string): Promise<KnowledgeResponse | null> {
+    try {
+      const params = new URLSearchParams();
+      if (agent) params.set('agent', agent);
+      if (q) params.set('q', q);
+      const qs = params.toString();
+      const res = await fetch(`${API_BASE_URL}/knowledge${qs ? `?${qs}` : ''}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Knowledge API endpoint offline:", e);
+    }
+    return null;
+  },
+
+  /** Estado real de Ollama + catálogo de modelos seleccionables con disponibilidad. */
+  async getModels(): Promise<ModelsResponse | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/models`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Models API endpoint offline:", e);
+    }
+    // Fallback: consulta directa a Ollama desde el navegador
+    try {
+      const directRes = await fetch(`${OLLAMA_DIRECT_URL}/api/tags`);
+      if (directRes.ok) {
+        const data = await directRes.json();
+        const installedModels = (data.models || []).map((m: { name: string }) => m.name);
+        return { ollamaConnected: true, installedModels, catalog: [], defaultModel: 'gemma4:e2b-mlx' };
+      }
+    } catch (e) {
+      console.warn("Direct Ollama tags check failed:", e);
+    }
+    return null;
+  },
+
+  /** Configuración persistida del motor: modo manual/router, modelo fijo y especialistas activos. */
+  async getConfig(): Promise<EngineConfig | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/config`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn("Config API endpoint offline:", e);
+    }
+    return null;
+  },
+
+  async saveConfig(config: {
+    engineMode?: EngineMode;
+    manualModel?: string;
+    enabledAgents?: AgentId[];
+  }): Promise<EngineConfig | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/config`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(config)
+      });
+      if (res.ok) {
+        const data = await res.json();
+        return data.config ?? null;
+      }
+    } catch (e) {
+      console.warn("Config API endpoint offline:", e);
+    }
+    return null;
+  },
+
   async getPeruData(city: string = "Chosica") {
     try {
       const res = await fetch(`${API_BASE_URL}/peru?city=${encodeURIComponent(city)}`);
@@ -85,9 +204,13 @@ export const ApiService = {
     healthProfile?: HealthProfile;
     locationProfile?: LocationProfile;
     fileAttachment?: { name: string; type: string; mimeType: string; dataBase64?: string; sizeFormatted: string };
+    /** Motor configurable: 'manual' fija un solo modelo para todo; 'router' mantiene el enrutado automático */
+    engineMode?: EngineMode;
+    /** Modelo fijo cuando engineMode = 'manual' (p. ej. 'gemma4:e2b-mlx') */
+    manualModel?: string;
     onUpdate?: (content: string) => void;
     onThinkingStep?: (step: string) => void;
-  }): Promise<(CognitiveChatResponse & { upgradeRequest?: any }) | null> {
+  }): Promise<(CognitiveChatResponse & { upgradeRequest?: UpgradeRequestInfo }) | null> {
     // 1. Try FastAPI backend first
     try {
       const res = await fetch(`${API_BASE_URL}/chat`, {
@@ -100,8 +223,8 @@ export const ApiService = {
         const reader = res.body?.getReader();
         const decoder = new TextDecoder("utf-8");
         let content = "";
-        let finalData: any = null;
-        let upgradeRequestData: any = null;
+        let finalData: CognitiveChatResponse | null = null;
+        let upgradeRequestData: ModelUpgradeEvent | null = null;
         let lastUpdate = 0;
         if (reader) {
           let reading = true;
@@ -356,7 +479,7 @@ export const ApiService = {
     } catch (e) {
       console.warn("Notes API offline, saving to localStorage:", e);
       const local = localStorage.getItem('maru_notes');
-      let notes: Note[] = local ? JSON.parse(local) : [];
+      const notes: Note[] = local ? JSON.parse(local) : [];
       const idx = notes.findIndex(n => n.id === note.id);
       if (idx >= 0) notes[idx] = note;
       else notes.push(note);
@@ -376,7 +499,7 @@ export const ApiService = {
     return [];
   },
 
-  async getAgenda(): Promise<any> {
+  async getAgenda(): Promise<unknown> {
     try {
       const res = await fetch(`${API_BASE_URL}/agenda`);
       if (res.ok) {
@@ -405,12 +528,105 @@ export const ApiService = {
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
         const audio = new Audio(url);
+        // Cross-origin blob URLs are fine for Web Audio analyser
         this.currentAudio = audio;
-        audio.play();
+        // Import lazy to avoid circular deps at module top
+        const { AudioService } = await import('./audioService');
+        AudioService.attachAnalyserToAudio(audio);
+        void audio.play();
         return audio;
       }
     } catch (e) {
       console.warn("Edge TTS unavailable:", e);
+    }
+    return null;
+  },
+
+  /** Sube un documento a la bóveda legal / documental (RAG local). */
+  async uploadLegalDocument(params: {
+    name: string;
+    mimeType: string;
+    type: string;
+    dataBase64: string;
+    agentId?: AgentId;
+    sizeFormatted?: string;
+  }): Promise<{ status: string; document?: { id: string; name: string; chunkCount?: number; charCount?: number }; message?: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/legal/upload`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      if (res.ok) return await res.json();
+      const err = await res.json().catch(() => ({}));
+      return { status: 'error', message: err.detail || 'No se pudo indexar el documento' };
+    } catch (e) {
+      console.warn('Legal upload offline:', e);
+      return null;
+    }
+  },
+
+  async listLegalDocuments(agentId?: AgentId): Promise<{ total: number; documents: Array<{ id: string; name: string; charCount?: number; chunkCount?: number; indexedAt?: string; preview?: string }> } | null> {
+    try {
+      const q = agentId ? `?agentId=${encodeURIComponent(agentId)}` : '';
+      const res = await fetch(`${API_BASE_URL}/legal/documents${q}`);
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Legal documents list offline:', e);
+    }
+    return null;
+  },
+
+  async execPython(code: string, timeout = 8): Promise<{ status: string; output: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/python/exec`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code, timeout })
+      });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Python sandbox offline:', e);
+    }
+    return null;
+  },
+
+  async sendMail(params: {
+    to: string;
+    subject: string;
+    body: string;
+    gmailEmail: string;
+    gmailAppPass: string;
+  }): Promise<{ status: string; message?: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/mail/send`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(params)
+      });
+      if (res.ok) return await res.json();
+      const err = await res.json().catch(() => ({}));
+      return { status: 'error', message: err.detail || 'No se pudo enviar' };
+    } catch (e) {
+      console.warn('Mail send offline:', e);
+      return { status: 'error', message: 'Backend offline. No se pudo enviar el correo.' };
+    }
+  },
+
+  /** STT local (Whisper) si el backend lo soporta; null → usar Web Speech. */
+  async transcribeAudio(dataBase64: string, mimeType = 'audio/webm'): Promise<{ text: string; engine: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/stt`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ dataBase64, mimeType, language: 'es' })
+      });
+      if (res.ok) {
+        const data = await res.json();
+        if (data?.text) return { text: data.text, engine: data.engine || 'whisper' };
+      }
+    } catch (e) {
+      console.warn('STT backend unavailable, falling back to Web Speech:', e);
     }
     return null;
   }

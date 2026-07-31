@@ -55,13 +55,13 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#1E3A5F]/60 backdrop-blur-md flex items-center justify-center p-4">
-      <div className="bg-[#F5F1E8] border border-[#E3DCCB] rounded-2xl p-6 sm:p-8 w-full max-w-lg shadow-2xl space-y-6">
+    <div className="fixed inset-0 z-50 bg-[var(--maru-void)]/60 backdrop-blur-md flex items-center justify-center p-4">
+      <div className="maru-panel !p-6 sm:!p-8 w-full max-w-lg shadow-[var(--maru-shadow-md)] space-y-6">
         <div className="text-center space-y-2">
           <div className="w-12 h-12 rounded-full bg-[#4A9B9D]/20 text-[#4A9B9D] flex items-center justify-center mx-auto">
             <KeyRound size={24} />
           </div>
-          <h2 className="text-2xl font-serif font-bold text-[#1E3A5F]">
+          <h2 className="text-2xl font-display font-bold text-[var(--maru-text)]">
             {step === 'phrase' ? 'Recuperar Contraseña' : 'Nueva Contraseña'}
           </h2>
           <p className="text-xs text-[#6B7F8C]">
@@ -83,7 +83,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({
                 rows={3}
                 placeholder="manantial piedra quebrada sol andino nieve viento agua condor altura tierra fuego"
                 required
-                className="w-full p-3 bg-white border border-[#E3DCCB] rounded-xl text-sm font-mono text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
+                className="maru-field min-h-24 font-mono"
               />
             </div>
 
@@ -98,13 +98,13 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 py-2.5 px-4 border border-[#E3DCCB] rounded-xl text-sm font-medium text-[#2C3E50] hover:bg-white"
+                className="maru-btn-secondary flex-1"
               >
                 Cancelar
               </button>
               <button
                 type="submit"
-                className="flex-1 py-2.5 px-4 bg-[#4A9B9D] hover:bg-[#3A8B8D] text-white rounded-xl text-sm font-medium transition-colors shadow"
+                className="maru-btn-primary flex-1"
               >
                 Verificar Frase
               </button>
@@ -121,7 +121,7 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({
                 placeholder="Mínimo 8 caracteres"
                 minLength={8}
                 required
-                className="w-full px-4 py-2.5 bg-white border border-[#E3DCCB] rounded-xl text-sm text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
+                className="maru-field"
               />
             </div>
 
@@ -132,13 +132,13 @@ export const RecoveryModal: React.FC<RecoveryModalProps> = ({
                 value={newHint}
                 onChange={(e) => setNewHint(e.target.value)}
                 placeholder="Ej: nombre de mi primera mascota"
-                className="w-full px-4 py-2.5 bg-white border border-[#E3DCCB] rounded-xl text-sm text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
+                className="maru-field"
               />
             </div>
 
             <button
               type="submit"
-              className="w-full py-3 bg-[#5A8F6B] hover:bg-[#4A7F5B] text-white rounded-xl font-medium transition-colors shadow flex items-center justify-center gap-2"
+              className="maru-btn-primary w-full"
             >
               <CheckCircle2 size={18} />
               Guardar Nueva Contraseña

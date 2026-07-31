@@ -4,6 +4,7 @@ import { AgentSphere3D } from '../canvas/AgentSphere3D';
 import { AgentId } from '../../types';
 import { Volume2, MessageSquare, CheckCircle2 } from 'lucide-react';
 import { AudioService } from '../../services/audioService';
+import { useEngineConfig } from '../../context/EngineConfigContext';
 
 interface AgentsViewProps {
   activeAgentId: AgentId;
@@ -16,31 +17,43 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
   onSelectAgent,
   onNavigateToChat
 }) => {
+  const { enabledAgents } = useEngineConfig();
+  const agents = AGENTS_CATALOG.filter((a) => enabledAgents.includes(a.id));
+
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-8 bg-[var(--maru-bg-elevated)] text-[var(--maru-text)]">
+    <div className="maru-page space-y-8">
+      <div className="maru-page-header">
       <div className="space-y-2 max-w-2xl">
-        <div className="text-xs font-mono uppercase tracking-[0.18em] text-[var(--maru-gold)]">
+        <div className="maru-eyebrow">
           Ecosistema MARU OS
         </div>
-        <h1 className="text-2xl sm:text-3xl font-display font-bold text-white tracking-tight">
-          Los 7 Agentes Cognitivos
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)] tracking-tight">
+          Especialistas cognitivos
         </h1>
         <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">
-          Cada agente posee su propia voz, especialidad, modelo optimizado y esfera 3D reactiva.
-          Selecciona uno para conversar en el manantial.
+          Elige una perspectiva. MARU conserva el contexto y coordina especialistas cuando lo necesitas.
+          {agents.length < AGENTS_CATALOG.length && (
+            <span className="block mt-1 text-[var(--maru-text-dim)]">
+              {AGENTS_CATALOG.length - agents.length} desactivado(s) en Ajustes.
+            </span>
+          )}
         </p>
+      </div>
+      <button onClick={onNavigateToChat} className="maru-btn-primary">
+        <MessageSquare size={16} /> Conversar con el agente seleccionado
+      </button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {AGENTS_CATALOG.map((agent) => {
+        {agents.map((agent) => {
           const isSelected = activeAgentId === agent.id;
           return (
             <div
               key={agent.id}
-              className={`rounded-xl p-6 space-y-4 flex flex-col justify-between transition-all border ${
+              className={`rounded-[var(--maru-radius-lg)] p-5 space-y-4 flex flex-col justify-between transition-all border ${
                 isSelected
-                  ? 'bg-[var(--maru-surface)] border-[var(--maru-gold)]/50 shadow-[0_0_32px_rgba(212,175,55,0.12)]'
-                  : 'bg-[var(--maru-surface)]/60 border-[var(--maru-border-soft)] hover:border-[var(--maru-gold)]/25'
+                  ? 'bg-[var(--maru-surface)] border-[var(--maru-primary)] shadow-[var(--maru-shadow-md)]'
+                  : 'bg-[var(--maru-surface)] border-[var(--maru-border-soft)] hover:border-[var(--maru-primary)]/40'
               }`}
             >
               <div className="space-y-3">
@@ -55,14 +68,14 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
 
                 <div className="text-center space-y-1">
                   <div className="flex items-center justify-center gap-2">
-                    <h3 className="font-display font-bold text-xl text-white">{agent.name}</h3>
-                    {isSelected && <CheckCircle2 size={16} className="text-[var(--maru-gold)]" />}
+                    <h3 className="font-display font-bold text-xl text-[var(--maru-text)]">{agent.name}</h3>
+                    {isSelected && <CheckCircle2 size={16} className="text-[var(--maru-primary)]" />}
                   </div>
                   <p className="text-xs font-mono text-[var(--maru-gold)]">{agent.quechuaMeaning}</p>
                   <p className="text-xs font-semibold text-[var(--maru-text-muted)]">{agent.specialty}</p>
                 </div>
 
-                <p className="text-xs text-[var(--maru-gold-soft)] italic font-serif text-center">
+                <p className="text-base text-[var(--maru-gold-deep)] italic font-serif text-center">
                   &ldquo;{agent.catchphrase}&rdquo;
                 </p>
 
@@ -70,14 +83,17 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   {agent.description}
                 </p>
 
-                <div className="p-2.5 bg-[var(--maru-void)]/60 rounded-lg text-[11px] font-mono text-[var(--maru-text-dim)] space-y-1 border border-[var(--maru-border-soft)]">
+                <details className="maru-disclosure bg-[var(--maru-surface-muted)] rounded-[10px] px-3 text-xs">
+                  <summary>Detalles técnicos</summary>
+                  <div className="pb-3 font-mono text-[11px] text-[var(--maru-text-muted)] space-y-1">
                   <div>
                     <strong className="text-[var(--maru-text-muted)]">Modelo:</strong> {agent.modelPreferred}
                   </div>
                   <div>
                     <strong className="text-[var(--maru-text-muted)]">Voz:</strong> {agent.voiceTone}
                   </div>
-                </div>
+                  </div>
+                </details>
               </div>
 
               <div className="flex gap-2 pt-2">
@@ -85,7 +101,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                   onClick={() =>
                     AudioService.speakText(`Hola, soy ${agent.name}. ${agent.catchphrase}`, agent.id)
                   }
-                  className="p-2.5 border border-[var(--maru-border-soft)] rounded-lg text-[var(--maru-text-muted)] hover:text-white hover:border-[var(--maru-gold)]/40 transition-colors"
+                  className="maru-btn-secondary px-3"
                   title="Escuchar muestra de voz"
                 >
                   <Volume2 size={16} />
@@ -96,10 +112,10 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                     onSelectAgent(agent.id);
                     onNavigateToChat();
                   }}
-                  className="flex-1 py-2.5 maru-btn-gold rounded-lg text-xs font-display flex items-center justify-center gap-2"
+                  className={`flex-1 ${isSelected ? 'maru-btn-primary' : 'maru-btn-secondary'}`}
                 >
                   <MessageSquare size={14} />
-                  <span>Conversar con {agent.name}</span>
+                  <span>{isSelected ? `Conversar con ${agent.name}` : `Elegir ${agent.name}`}</span>
                 </button>
               </div>
             </div>

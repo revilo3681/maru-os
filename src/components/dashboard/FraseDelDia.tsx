@@ -29,7 +29,7 @@ export const FraseDelDia: React.FC = () => {
   };
 
   return (
-    <div className="relative overflow-hidden rounded-xl border border-[var(--maru-border)] bg-gradient-to-br from-[var(--maru-surface)] via-[var(--maru-bg)] to-[var(--maru-void)] p-5 text-[var(--maru-text)]">
+    <div className="relative overflow-hidden rounded-[var(--maru-radius-lg)] border border-white/10 bg-[var(--maru-void)] p-5 sm:p-6 text-white shadow-[var(--maru-shadow-sm)]">
       <div
         className="absolute inset-0 pointer-events-none opacity-40"
         style={{
@@ -45,12 +45,12 @@ export const FraseDelDia: React.FC = () => {
           <span>MARU OS</span>
         </div>
 
-        <p className="text-lg sm:text-xl font-serif italic text-white leading-relaxed">
+        <p className="text-xl sm:text-2xl font-serif italic text-white leading-relaxed max-w-3xl">
           &ldquo;{currentFrase.text}&rdquo;
         </p>
 
         <div className="flex items-center justify-between pt-1">
-          <span className="text-xs font-mono text-[var(--maru-gold-soft)]">— {currentFrase.author}</span>
+          <span className="text-xs font-mono text-[#d9c18d]">— {currentFrase.author}</span>
 
           <div className="flex items-center gap-2">
             <button

@@ -277,6 +277,10 @@ export class StorageService {
     localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
   }
 
+  static saveCalendarEvents(events: CalendarEvent[]): void {
+    localStorage.setItem(STORAGE_KEYS.EVENTS, JSON.stringify(events));
+  }
+
   static getSettings(): AppSettings {
     const data = localStorage.getItem(STORAGE_KEYS.SETTINGS);
     return data ? JSON.parse(data) : defaultSettings;

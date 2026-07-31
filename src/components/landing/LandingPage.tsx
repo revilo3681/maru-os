@@ -11,9 +11,8 @@ import {
   Users,
   Layers
 } from 'lucide-react';
-import { MaruOrbit } from './MaruOrbit';
+import { MaruEnso } from '../brand/MaruEnso';
 import { AGENTS_CATALOG } from '../../data/agentsData';
-import { AgentId } from '../../types';
 
 interface LandingPageProps {
   onStartOnboarding: () => void;
@@ -77,7 +76,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onOpenLogin
 }) => {
   const [activeNav, setActiveNav] = useState<string>('inicio');
-  const [focusedAgent, setFocusedAgent] = useState<AgentId | null>(null);
 
   const scrollTo = (id: string) => {
     setActiveNav(id);
@@ -117,11 +115,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             className="flex items-center gap-3 shrink-0 group"
           >
             <div className="relative w-10 h-10">
-              <img
-                src="/logo.jpg"
-                alt="MARU OS"
-                className="w-10 h-10 rounded-full object-cover border border-white/40 shadow-[0_0_20px_rgba(0,122,255,0.35)] animate-maru-spin-slow"
-              />
+              <MaruEnso size={40} showName={false} />
             </div>
             <span className="font-display font-bold text-lg tracking-[0.12em] text-white">
               MARU OS
@@ -135,12 +129,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 type="button"
                 onClick={() => scrollTo(link.id)}
                 className={`relative pb-1 transition-colors hover:text-white ${
-                  activeNav === link.id ? 'text-[#5AC8FA]' : ''
+                  activeNav === link.id ? 'text-[#9fe0d6]' : ''
                 }`}
               >
                 {link.label}
                 {activeNav === link.id && (
-                  <span className="absolute left-0 right-0 -bottom-0.5 h-px bg-[#5AC8FA] shadow-[0_0_8px_rgba(90,200,250,0.8)]" />
+                  <span className="absolute left-0 right-0 -bottom-0.5 h-px bg-[#9fe0d6]" />
                 )}
               </button>
             ))}
@@ -149,7 +143,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           <button
             type="button"
             onClick={onStartOnboarding}
-            className="maru-btn-ghost px-4 py-2 rounded-lg text-sm font-display font-semibold tracking-wide border-white/50 text-white hover:bg-white/10 hover:border-white"
+            className="min-h-10 px-4 py-2 rounded-[10px] text-sm font-display font-semibold tracking-wide border border-white/50 text-white hover:bg-white/10 hover:border-white"
           >
             Comenzar
           </button>
@@ -163,32 +157,24 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               initial={{ opacity: 0, y: 22 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
-              className="relative max-w-xl"
+              className="relative max-w-xl rounded-2xl border border-white/25 bg-[#f8f5ed]/92 p-6 sm:p-8 shadow-[0_24px_70px_rgba(9,35,43,0.24)] backdrop-blur-md"
             >
-              <div
-                className="absolute -inset-6 sm:-inset-8 rounded-3xl pointer-events-none"
-                style={{
-                  background:
-                    'linear-gradient(105deg, rgba(253,248,241,0.92) 0%, rgba(253,248,241,0.78) 55%, rgba(253,248,241,0.2) 100%)',
-                  boxShadow: '0 24px 80px rgba(11,33,63,0.12)',
-                }}
-              />
               <div className="relative">
                 <h1
-                  className="text-[2.35rem] sm:text-5xl lg:text-[3.35rem] font-bold leading-[1.08] tracking-tight text-[#0B213F]"
+                  className="text-[2.5rem] sm:text-5xl lg:text-[3.45rem] font-bold leading-[1.03] tracking-tight text-[var(--maru-text)]"
                   style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
                 >
                   El primer sistema
                   <br />
                   operativo cognitivo
                   <br />
-                  <em className="italic font-semibold text-[#1D7C72]">con alma.</em>
+                  <em className="italic font-semibold text-[var(--maru-primary)]">con alma.</em>
                 </h1>
 
-                <div className="mt-5 h-[3px] w-14 rounded-full bg-[#1D7C72]" />
+                <div className="mt-5 h-[3px] w-14 rounded-full bg-[var(--maru-gold)]" />
 
                 <p
-                  className="mt-6 text-[15px] sm:text-base leading-relaxed text-[#6B7280] max-w-md"
+                  className="mt-6 text-[15px] sm:text-base leading-relaxed text-[var(--maru-text-muted)] max-w-md"
                   style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
                 >
                   Impulsado por una arquitectura híbrida edge-cloud basada en modelos Gemma.
@@ -201,7 +187,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <button
                     type="button"
                     onClick={onStartOnboarding}
-                    className="maru-btn-gold inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-display tracking-wide"
+                    className="maru-btn-primary px-7 py-3.5"
                   >
                     <Sparkles size={16} />
                     Comenzar
@@ -209,7 +195,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <button
                     type="button"
                     onClick={() => scrollTo('arquitectura')}
-                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-display tracking-wide border border-[#0B213F]/20 text-[#0B213F] bg-white/50 hover:bg-white/80 transition-colors"
+                    className="maru-btn-secondary px-6 py-3.5"
                   >
                     <Box size={16} />
                     Ver Arquitectura
@@ -217,7 +203,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   <button
                     type="button"
                     onClick={onOpenLogin}
-                    className="text-sm text-[#0B213F]/55 hover:text-[#0B213F] underline-offset-4 hover:underline px-2 py-2 font-display"
+                    className="maru-btn-quiet"
                   >
                     Ya tengo cuenta
                   </button>
@@ -232,14 +218,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               transition={{ duration: 1.05, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
               className="relative flex justify-center lg:justify-end"
             >
-              <MaruOrbit size={480} />
+              <MaruEnso withOrbit size={480} showName namePlacement="inside" />
             </motion.div>
           </div>
         </div>
       </section>
 
       {/* ── CARACTERÍSTICAS ── */}
-      <section id="caracteristicas" className="relative py-24 px-4 sm:px-8 bg-white">
+      <section id="caracteristicas" className="relative py-24 px-4 sm:px-8 bg-[var(--maru-surface)]">
         <div className="max-w-5xl mx-auto">
           <div className="max-w-xl mb-14">
             <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
@@ -269,7 +255,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* ── AGENTES ── */}
-      <section id="agentes" className="relative py-24 px-4 sm:px-8 bg-[#F9FAFB]">
+      <section id="agentes" className="relative py-24 px-4 sm:px-8 bg-[var(--maru-bg)]">
         <div className="max-w-5xl mx-auto">
           <div className="max-w-xl mb-12">
             <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
@@ -289,15 +275,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 key={agent.id}
                 type="button"
                 onClick={() => {
-                  setFocusedAgent(agent.id);
                   scrollTo('inicio');
                 }}
                 className="text-left group space-y-2"
               >
                 <div className="flex items-center gap-3">
                   <span
-                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-display font-bold text-[#0B0D17] transition-transform group-hover:scale-105"
-                    style={{ backgroundColor: agent.colorAccent }}
+                    className="w-10 h-10 rounded-[10px] flex items-center justify-center text-sm font-display font-bold text-white transition-transform group-hover:scale-105"
+                    style={{ backgroundColor: 'var(--maru-primary)' }}
                   >
                     {agent.name[0]}
                   </span>
@@ -320,7 +305,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* ── ARQUITECTURA ── */}
-      <section id="arquitectura" className="relative py-24 px-4 sm:px-8 bg-white">
+      <section id="arquitectura" className="relative py-24 px-4 sm:px-8 bg-[var(--maru-surface)]">
         <div className="max-w-5xl mx-auto">
           <div className="max-w-xl mb-12">
             <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
@@ -334,27 +319,31 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
             {[
               { letter: 'M', title: 'Memory', body: 'Memoria RAG local: tus notas, hábitos y contexto viven cifrados en el dispositivo.' },
               { letter: 'A', title: 'Agents', body: 'Especialistas que se activan según la intención — salud, código, clima, emergencia.' },
               { letter: 'R', title: 'Reasoning', body: 'Razonamiento multi-paso con modelos cuantizados en Ollama, sin ceder tu voz a la nube.' },
               { letter: 'U', title: 'Universal', body: 'Una capa universal: el manantial une personas, ideas y conocimiento donde estés.' }
             ].map((pillar) => (
-              <div key={pillar.letter} className="space-y-3 pt-1">
-                <div className="font-display text-4xl font-extrabold text-[var(--maru-gold)]/90">
+              <details key={pillar.letter} className="maru-disclosure maru-panel-muted px-4" open={pillar.letter === 'M'}>
+                <summary>
+                  <span className="flex items-center gap-3"><b className="text-2xl text-[var(--maru-gold)]">{pillar.letter}</b>{pillar.title}</span>
+                </summary>
+                <div className="pb-4">
+                <div className="hidden font-display text-4xl font-extrabold text-[var(--maru-gold)]/90">
                   {pillar.letter}
                 </div>
-                <h3 className="font-display font-semibold text-[var(--maru-text)]">{pillar.title}</h3>
-                <p className="text-xs text-[var(--maru-text-muted)] leading-relaxed">{pillar.body}</p>
-              </div>
+                <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{pillar.body}</p>
+                </div>
+              </details>
             ))}
           </div>
         </div>
       </section>
 
       {/* ── SOBRE MARU — triple meaning ── */}
-      <section id="sobre" className="relative py-24 px-4 sm:px-8 bg-white">
+      <section id="sobre" className="relative py-24 px-4 sm:px-8 bg-[var(--maru-bg-elevated)]">
         <div className="max-w-5xl mx-auto">
           <div className="max-w-2xl mb-14">
             <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
@@ -371,20 +360,23 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-10">
+          <div className="grid md:grid-cols-3 gap-4">
             {MEANINGS.map((m) => (
-              <div key={m.lang} className="space-y-3">
+              <details key={m.lang} className="maru-disclosure maru-panel px-4" open={m.lang === 'Quechua'}>
+                <summary>{m.title}</summary>
+                <div className="space-y-3 pb-4">
                 <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--maru-text)]/45">
                   {m.region} · {m.lang}
                 </div>
-                <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] flex items-center gap-2">
+                <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] flex items-center gap-2 sr-only">
                   {m.lang === 'Quechua' && <Droplets size={18} className="text-[var(--maru-gold)]" />}
                   {m.lang === 'Japonés' && <Circle size={18} className="text-[var(--maru-gold)]" />}
                   {m.lang === 'Inglés' && <Brain size={18} className="text-[var(--maru-gold)]" />}
                   {m.title}
                 </h3>
                 <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{m.body}</p>
-              </div>
+                </div>
+              </details>
             ))}
           </div>
 
