@@ -11,7 +11,7 @@ import {
   Users,
   Layers
 } from 'lucide-react';
-import { MaruRoulette3D } from '../canvas/MaruRoulette3D';
+import { MaruOrbit } from './MaruOrbit';
 import { AGENTS_CATALOG } from '../../data/agentsData';
 import { AgentId } from '../../types';
 
@@ -85,8 +85,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const focused = AGENTS_CATALOG.find((a) => a.id === focusedAgent);
-
   return (
     <div className="relative min-h-screen bg-[var(--maru-bg)] text-[var(--maru-text)] font-sans overflow-x-hidden">
       {/* ── HERO ── */}
@@ -101,12 +99,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             playsInline
             className="absolute inset-0 w-full h-full object-cover object-center scale-105"
           />
-          {/* Subtle dark vignette for text contrast — video stays visible */}
+          {/* Soft left vignette only — video stays clear on the right */}
           <div
             className="absolute inset-0 pointer-events-none"
             style={{
               background:
-                'linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 38%, rgba(0,0,0,0.18) 62%, rgba(0,0,0,0.55) 100%)'
+                'linear-gradient(90deg, rgba(0,0,0,0.28) 0%, rgba(0,0,0,0.08) 42%, rgba(0,0,0,0.05) 100%), linear-gradient(180deg, rgba(0,0,0,0.35) 0%, transparent 28%, transparent 72%, rgba(0,0,0,0.25) 100%)'
             }}
           />
         </div>
@@ -157,120 +155,87 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </button>
         </header>
 
-        {/* Hero composition: brand + copy + CTAs + roulette */}
-        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-36 pt-4">
-          {/* Interactive Enso roulette — brand-level hero visual */}
-          <motion.div
-            initial={{ opacity: 0, scale: 0.92 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
-            className="relative mb-2 sm:mb-0"
-          >
-            <MaruRoulette3D
-              size={440}
-              className="w-[min(440px,85vw)] h-auto"
-              selectedAgentId={focusedAgent}
-              onSelectAgent={(id) => setFocusedAgent(id)}
-              autoSpin
-              showLabels
-            />
-          </motion.div>
-
-          <motion.div
-            initial={{ opacity: 0, y: 24 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
-            className="text-center max-w-2xl -mt-2 sm:-mt-4"
-          >
-            <h1 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl tracking-tight text-white leading-none drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]">
-              Inteligencia Artificial{' '}
-              <span className="font-script font-normal text-[#5AC8FA] text-5xl sm:text-6xl md:text-7xl block sm:inline sm:ml-1">
-                para Todos
-              </span>
-            </h1>
-            <p className="mt-4 text-sm sm:text-base text-white/80 max-w-xl mx-auto leading-relaxed font-sans drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]">
-              Privada, offline y diseñada para unir personas, ideas y conocimiento sin importar dónde vivas.
-            </p>
-
-            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
-              <button
-                type="button"
-                onClick={onStartOnboarding}
-                className="maru-btn-gold inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-display tracking-wide"
-              >
-                <Sparkles size={16} />
-                Comenzar
-              </button>
-              <button
-                type="button"
-                onClick={() => scrollTo('arquitectura')}
-                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-display tracking-wide border border-white/45 text-white bg-black/20 hover:bg-white/10 transition-colors"
-              >
-                <Box size={16} />
-                Ver Arquitectura
-              </button>
-              <button
-                type="button"
-                onClick={onOpenLogin}
-                className="text-sm text-white/65 hover:text-white underline-offset-4 hover:underline px-2 py-2 font-display"
-              >
-                Ya tengo cuenta
-              </button>
-            </div>
-
-            {focused && (
-              <motion.p
-                key={focused.id}
-                initial={{ opacity: 0, y: 6 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mt-4 text-xs font-mono text-[#5AC8FA]"
-              >
-                {focused.name} · {focused.specialty}
-              </motion.p>
-            )}
-          </motion.div>
-        </div>
-
-        {/* Agent strip — bottom of first viewport */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.45 }}
-          className="absolute bottom-0 inset-x-0 z-20 bg-black/45 backdrop-blur-md border-t border-white/10"
-        >
-          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex gap-2 sm:gap-3 overflow-x-auto">
-            {AGENTS_CATALOG.map((agent) => {
-              const active = focusedAgent === agent.id;
-              return (
-                <button
-                  key={agent.id}
-                  type="button"
-                  onClick={() => setFocusedAgent(agent.id)}
-                  className={`shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all ${
-                    active
-                      ? 'bg-[#007AFF]/25 border border-[#5AC8FA]/50'
-                      : 'border border-transparent hover:bg-white/10'
-                  }`}
+        {/* Hero: editorial copy (left) + orbit (right), video stays behind */}
+        <div className="relative z-10 flex-1 flex items-center px-4 sm:px-8 lg:px-12 pb-16 pt-6">
+          <div className="w-full max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-8 items-center">
+            {/* Left — editorial text on soft cream panel */}
+            <motion.div
+              initial={{ opacity: 0, y: 22 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
+              className="relative max-w-xl"
+            >
+              <div
+                className="absolute -inset-6 sm:-inset-8 rounded-3xl pointer-events-none"
+                style={{
+                  background:
+                    'linear-gradient(105deg, rgba(253,248,241,0.92) 0%, rgba(253,248,241,0.78) 55%, rgba(253,248,241,0.2) 100%)',
+                  boxShadow: '0 24px 80px rgba(11,33,63,0.12)',
+                }}
+              />
+              <div className="relative">
+                <h1
+                  className="text-[2.35rem] sm:text-5xl lg:text-[3.35rem] font-bold leading-[1.08] tracking-tight text-[#0B213F]"
+                  style={{ fontFamily: "'Cormorant Garamond', Georgia, serif" }}
                 >
-                  <span
-                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-display font-bold text-[#0B0D17]"
-                    style={{ backgroundColor: agent.colorAccent }}
+                  El primer sistema
+                  <br />
+                  operativo cognitivo
+                  <br />
+                  <em className="italic font-semibold text-[#1D7C72]">con alma.</em>
+                </h1>
+
+                <div className="mt-5 h-[3px] w-14 rounded-full bg-[#1D7C72]" />
+
+                <p
+                  className="mt-6 text-[15px] sm:text-base leading-relaxed text-[#6B7280] max-w-md"
+                  style={{ fontFamily: "'DM Sans', system-ui, sans-serif" }}
+                >
+                  Impulsado por una arquitectura híbrida edge-cloud basada en modelos Gemma.
+                  MARU OS preserva el contexto, razona sobre intenciones complejas y orquesta
+                  agentes en un entorno profundamente personal y seguro. Un espacio donde la
+                  computación se siente humana.
+                </p>
+
+                <div className="mt-8 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={onStartOnboarding}
+                    className="maru-btn-gold inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-display tracking-wide"
                   >
-                    {agent.name[0]}
-                  </span>
-                  <span className="text-left">
-                    <span className="block text-xs font-display font-semibold text-white leading-tight">
-                      {agent.name}
-                    </span>
-                    <span className="block text-[10px] text-white/55 max-w-[9rem] truncate">
-                      {agent.specialty}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
+                    <Sparkles size={16} />
+                    Comenzar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => scrollTo('arquitectura')}
+                    className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-display tracking-wide border border-[#0B213F]/20 text-[#0B213F] bg-white/50 hover:bg-white/80 transition-colors"
+                  >
+                    <Box size={16} />
+                    Ver Arquitectura
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onOpenLogin}
+                    className="text-sm text-[#0B213F]/55 hover:text-[#0B213F] underline-offset-4 hover:underline px-2 py-2 font-display"
+                  >
+                    Ya tengo cuenta
+                  </button>
+                </div>
+              </div>
+            </motion.div>
+
+            {/* Right — orbit of model logos */}
+            <motion.div
+              initial={{ opacity: 0, scale: 0.94 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={{ duration: 1.05, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
+              className="relative flex justify-center lg:justify-end"
+            >
+              <MaruOrbit size={480} />
+            </motion.div>
           </div>
-        </motion.div>
+        </div>
       </section>
 
       {/* ── CARACTERÍSTICAS ── */}

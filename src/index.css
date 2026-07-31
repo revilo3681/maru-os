@@ -243,3 +243,22 @@
 .animate-waterfall {
   animation: waterfall-flow linear infinite;
 }
+
+/* Landing hero — tech logo orbit */
+@keyframes maru-orbit {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes maru-orbit-counter {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
