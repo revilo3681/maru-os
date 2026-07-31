@@ -5,11 +5,16 @@ from app.core.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Los 3 modelos Gemma 4 cuantizados locales del usuario
+# Catálogo de referencia (cuantizados + normales + cloud liviano)
 GEMMA_MODELS = {
     "gemma4:e2b-q4":   {"ram": "3.3 GB", "type": "Local Quantized", "role": "Ultra rápido / Default"},
+    "gemma4:e2b":      {"ram": "7.2 GB", "type": "Local Full", "role": "Ultra rápido (sin cuantizar)"},
     "gemma4:e4b-q4":   {"ram": "5.2 GB", "type": "Local Quantized", "role": "Cerebro principal"},
-    "gemma4:12b-q4":   {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código de alta precisión"},
+    "gemma4:e4b":      {"ram": "9.6 GB", "type": "Local Full", "role": "Cerebro (sin cuantizar)"},
+    "gemma4:12b-q4":   {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código"},
+    "gemma4:12b":      {"ram": "7.6 GB", "type": "Local Full", "role": "Visión & Código (sin cuantizar)"},
+    "gemma4:cloud":    {"ram": "Cloud", "type": "Cloud Light", "role": "Nube · menor consumo"},
+    "gemma4:31b-cloud": {"ram": "Cloud", "type": "Cloud Heavy", "role": "Nube · máxima capacidad"},
 }
 
 CANDIDATE_URLS = [
@@ -100,9 +105,22 @@ class OllamaClient:
             yield json.dumps({"error": "Ollama no disponible"}).encode('utf-8') + b'\n'
             return
 
-        models_to_try = [model]
-        if model != "gemma4:31b-cloud":
-            models_to_try.append("gemma4:31b-cloud")
+        # Cadena: modelo pedido → misma familia normal (si vino cuantizado) → cloud liviano → 31b
+        models_to_try: List[str] = [model]
+        try:
+            from app.services import model_config
+            installed = [m.get("name", "") for m in await self.list_models()]
+            # Si pidieron q4 y no está, ya debería venir resuelto; aún así añadimos familia
+            fam_resolved = model_config.resolve_model_name(model, installed)
+            if fam_resolved not in models_to_try:
+                models_to_try.append(fam_resolved)
+            for cloud_name in model_config.cloud_fallback_chain(installed):
+                if cloud_name not in models_to_try:
+                    models_to_try.append(cloud_name)
+        except Exception:
+            for cloud_name in ("gemma4:cloud", "gemma4:31b-cloud"):
+                if cloud_name not in models_to_try:
+                    models_to_try.append(cloud_name)
 
         async with self.queue_lock:
             for attempt_model in models_to_try:

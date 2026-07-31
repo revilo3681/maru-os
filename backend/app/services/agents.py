@@ -8,8 +8,13 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════
 GEMMA_MODELS = {
     "gemma4:e2b-q4": {"ram": "3.3 GB", "type": "Local Quantized", "role": "Ultra rápido / Default"},
+    "gemma4:e2b": {"ram": "7.2 GB", "type": "Local Full", "role": "Ultra rápido (sin cuantizar)"},
     "gemma4:e4b-q4": {"ram": "5.2 GB", "type": "Local Quantized", "role": "Cerebro principal"},
-    "gemma4:12b-q4": {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código de alta precisión"},
+    "gemma4:e4b": {"ram": "9.6 GB", "type": "Local Full", "role": "Cerebro (sin cuantizar)"},
+    "gemma4:12b-q4": {"ram": "7.0 GB", "type": "Local Quantized", "role": "Visión & Código"},
+    "gemma4:12b": {"ram": "7.6 GB", "type": "Local Full", "role": "Visión & Código (sin cuantizar)"},
+    "gemma4:cloud": {"ram": "Cloud", "type": "Cloud Light", "role": "Nube · menor consumo"},
+    "gemma4:31b-cloud": {"ram": "Cloud", "type": "Cloud Heavy", "role": "Nube · máxima capacidad"},
 }
 
 AGENTS_METADATA = {
@@ -219,8 +224,11 @@ class CognitiveAgentRouter:
         - yaku (para cultura peruana, historia, INEI)
         """
         
-        # Intentamos usar gemma4:e2b-q4 para la clasificación rápida
-        resp = await ollama_client.generate_response("gemma4:e2b-q4", system_prompt, prompt, temperature=0.1)
+        # Clasificación rápida: e2b-q4 si está; si no, e2b normal
+        from app.services import model_config
+        installed = [m.get("name", "") for m in await ollama_client.list_models()]
+        router_model = model_config.resolve_fast_local(installed)
+        resp = await ollama_client.generate_response(router_model, system_prompt, prompt, temperature=0.1)
         agent_id_raw = resp.get("content", "").strip().lower()
         
         agent_ids = []
@@ -252,9 +260,9 @@ class CognitiveAgentRouter:
                 agent_ids = ["tupac"]
                 reason = "Fallback reglas: Emergencia → Tupac"
             else:
-                reason = f"Clasificado inteligentemente por gemma4:e2b-q4 → {', '.join(agent_ids)}"
+                reason = f"Clasificado inteligentemente por {router_model} → {', '.join(agent_ids)}"
         else:
-            reason = f"Clasificado inteligentemente por gemma4:e2b-q4 → {', '.join(agent_ids)}"
+            reason = f"Clasificado inteligentemente por {router_model} → {', '.join(agent_ids)}"
 
         # Limitar a máximo 2 agentes para no sobrecargar
         agent_ids = list(dict.fromkeys(agent_ids))[:2]

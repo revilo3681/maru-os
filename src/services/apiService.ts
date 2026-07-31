@@ -318,45 +318,60 @@ export const ApiService = {
         }
       }
 
-      let modelName = "gemma4:e2b";
-      let agentRAM = "3.2 GB";
+      // Preferencia: cuantizado Q4 → normal. Cloud: gemma4:cloud → 31b-cloud
+      const FAMILY: Record<string, string[]> = {
+        e2b: ['gemma4:e2b-q4', 'gemma4:e2b'],
+        e4b: ['gemma4:e4b-q4', 'gemma4:e4b'],
+        '12b': ['gemma4:12b-q4', 'gemma4:12b'],
+        cloud: ['gemma4:cloud', 'gemma4:31b-cloud']
+      };
+      const pickFamily = (key: keyof typeof FAMILY, available: string[]) => {
+        for (const name of FAMILY[key]) {
+          if (available.some((m) => m === name || m.startsWith(`${name}:`))) return name;
+        }
+        return FAMILY[key][FAMILY[key].length - 1];
+      };
 
-      if (params.fileAttachment) {
-        modelName = "gemma4:31b-cloud";
-        agentRAM = "Cloud";
+      let preferredFamily: keyof typeof FAMILY = 'e2b';
+      let agentRAM = '3.3 GB';
+
+      if (params.engineMode === 'manual' && params.manualModel) {
+        const mm = params.manualModel;
+        if (mm.includes('cloud') || mm.includes('31b')) preferredFamily = 'cloud';
+        else if (mm.includes('12b')) preferredFamily = '12b';
+        else if (mm.includes('e4b')) preferredFamily = 'e4b';
+        else preferredFamily = 'e2b';
+      } else if (params.fileAttachment) {
+        preferredFamily = '12b';
+        agentRAM = '7.0 GB';
       } else if (isDeepThinking || params.manualAgent) {
-        const MODEL_MAP: Record<string, string> = {
-          aya:   "gemma4:12b",
-          inti:  "gemma4:e4b",
-          kipu:  "gemma4:12b",
-          sumaq: "gemma4:e4b",
-          pacha: "gemma4:e4b",
-          tupac: "gemma4:e2b",
-          yaku:  "gemma4:31b-cloud"
+        const MAP: Record<string, keyof typeof FAMILY> = {
+          aya: '12b', inti: 'e4b', kipu: '12b', sumaq: 'e4b',
+          pacha: 'e4b', tupac: 'e2b', yaku: 'e4b'
         };
-        const RAM_MAP: Record<string, string> = {
-          aya: "7.6 GB", inti: "9.6 GB", kipu: "7.6 GB",
-          sumaq: "9.6 GB", pacha: "9.6 GB", tupac: "7.2 GB", yaku: "Cloud"
-        };
-        modelName = MODEL_MAP[agentId] || "gemma4:12b";
-        agentRAM = RAM_MAP[agentId] || "7.6 GB";
+        preferredFamily = MAP[agentId] || '12b';
       }
 
-      // Verificación dinámica del modelo
+      let modelName = FAMILY[preferredFamily][0];
       try {
         const tagsRes = await fetch(`${OLLAMA_DIRECT_URL}/api/tags`);
         if (tagsRes.ok) {
-          const tagsData = await tagsRes.json();
-          const availableModels = (tagsData.models || []).map((m: { name: string }) => m.name);
-          if (availableModels.length > 0 && !availableModels.includes(modelName)) {
-            // Si el modelo preferido no está, usamos el primero que tenga (ej. llama3 o qwen)
-            console.warn(`Modelo ${modelName} no encontrado localmente. Usando ${availableModels[0]} como fallback.`);
-            modelName = availableModels[0];
-            agentRAM = "Desconocido (Fallback)";
+          const tagsData = await tagsRes.json() as { models?: Array<{ name: string }> };
+          const availableModels: string[] = (tagsData.models || []).map((m) => m.name);
+          if (availableModels.length > 0) {
+            modelName = pickFamily(preferredFamily, availableModels);
+            // Si la familia pedida no existe, degradar a e2b Q4→normal
+            const familyNames = FAMILY[preferredFamily];
+            const familyPresent = familyNames.some(
+              (n) => availableModels.some((name) => name === n || name.startsWith(`${n}:`))
+            );
+            if (!familyPresent) {
+              modelName = pickFamily('e2b', availableModels);
+            }
           }
         }
-      } catch (e) {
-        // Ignorar si falla la verificación, intentar con el predeterminado
+      } catch {
+        // Ignorar verificación
       }
 
       const agentPersona = "Eres un asistente empático de MARU OS.";

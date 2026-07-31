@@ -103,6 +103,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           .catch(() => setIsPlaying(false));
       }
     }
+    // Solo al montar: el volumen se sincroniza en handleVolumeChange
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const togglePlay = () => {
@@ -115,11 +117,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({
     }
   };
 
+  const applyVolume = (newVol: number) => {
+    setVolume(newVol);
+    if (audioRef.current) audioRef.current.volume = newVol;
+  };
+
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVol = parseFloat(e.target.value);
-    setVolume(newVol);
+    applyVolume(newVol);
     if (audioRef.current) {
-      audioRef.current.volume = newVol;
       if (newVol > 0 && !isPlaying) {
         audioRef.current.play().then(() => setIsPlaying(true)).catch(() => { });
       } else if (newVol === 0 && isPlaying) {
@@ -238,7 +244,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <div className="flex items-center gap-2">
                       <button
                         type="button"
-                        onClick={() => handleVolumeChange({ target: { value: '0' } } as any)}
+                        onClick={() => applyVolume(0)}
                         className="p-1 text-gray-500 hover:text-black transition-colors"
                         title="Silenciar"
                       >
@@ -257,7 +263,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
 
                       <button
                         type="button"
-                        onClick={() => handleVolumeChange({ target: { value: '1' } } as any)}
+                        onClick={() => applyVolume(1)}
                         className="p-1 text-gray-500 hover:text-black transition-colors"
                         title="Volumen Máximo"
                       >

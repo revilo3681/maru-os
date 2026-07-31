@@ -1,62 +1,79 @@
 """
 MARU OS — Motor de modelos configurable.
 
-- Catálogo de modelos locales seleccionables (nombres canónicos '-mlx' + alias
-  reales instalados en Ollama, p. ej. 'gemma4:e2b-q4').
-- Resolución de nombres contra los modelos realmente instalados (/api/tags).
-- Configuración persistente (JSON) del modo de motor:
-    * 'manual' (default): UN modelo fijo para todos los agentes.
-    * 'router': comportamiento automático actual (cada agente usa su modelo).
+Prioridad de resolución (Router y Manual):
+  1) Versión cuantizada (p. ej. gemma4:e2b-q4, gemma4:e4b-q4, gemma4:12b-q4)
+  2) Si no está, versión normal sin cuantizar (gemma4:e2b, gemma4:e4b, gemma4:12b)
+  3) Cloud: preferir gemma4:cloud (menor consumo) sobre gemma4:31b-cloud
 """
+
+from __future__ import annotations
 
 import json
 import logging
 import os
 import threading
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Sequence
 
 logger = logging.getLogger(__name__)
 
 # ══════════════════════════════════════════════════════════════════
-#  Catálogo de modelos seleccionables
-#  'aliases' = nombres equivalentes con los que puede estar instalado en Ollama
+#  Familias de modelos (cuantizado → normal)
 # ══════════════════════════════════════════════════════════════════
-MODEL_CATALOG: List[Dict[str, Any]] = [
-    {
+MODEL_FAMILIES: Dict[str, Dict[str, Any]] = {
+    "e2b": {
         "id": "gemma4:e2b-q4",
-        "label": "Gemma 4 E2B (cuantizado - más rápido)",
+        "label": "Gemma 4 E2B (cuantizado · más rápido)",
         "ram": "3.3 GB",
-        "role": "Ultra rápido / Default",
+        "role": "Ultra rápido / Default / Traductor Yaku",
         "is_cloud": False,
-        "aliases": ["gemma4:e2b-q4", "gemma4:e2b-mlx", "gemma4:e2b"],
+        # Orden estricto: cuantizado primero, luego normal
+        "prefer": ["gemma4:e2b-q4", "gemma4:e2b-mlx", "gemma4:e2b"],
     },
-    {
+    "e4b": {
         "id": "gemma4:e4b-q4",
-        "label": "Gemma 4 E4B (cuantizado - equilibrado)",
+        "label": "Gemma 4 E4B (cuantizado · equilibrado)",
         "ram": "5.2 GB",
         "role": "Cerebro principal",
         "is_cloud": False,
-        "aliases": ["gemma4:e4b-q4", "gemma4:e4b-mlx", "gemma4:e4b"],
+        "prefer": ["gemma4:e4b-q4", "gemma4:e4b-mlx", "gemma4:e4b"],
     },
-    {
+    "12b": {
         "id": "gemma4:12b-q4",
-        "label": "Gemma 4 12B (cuantizado - máxima precisión)",
+        "label": "Gemma 4 12B (cuantizado · máxima precisión)",
         "ram": "7.0 GB",
         "role": "Visión & Código de alta precisión",
         "is_cloud": False,
-        "aliases": ["gemma4:12b-q4", "gemma4:12b-mlx", "gemma4:12b"],
+        "prefer": ["gemma4:12b-q4", "gemma4:12b-mlx", "gemma4:12b"],
     },
-    {
-        "id": "gemma4:31b-cloud",
-        "label": "Gemma 4 31B (nube)",
+    "cloud": {
+        # Preferir cloud liviano; 31b-cloud solo si no hay alternativa
+        "id": "gemma4:cloud",
+        "label": "Gemma 4 Cloud (menor consumo)",
         "ram": "Cloud",
-        "role": "Razonamiento máximo (requiere internet)",
+        "role": "Nube · preferir gemma4:cloud sobre 31b",
         "is_cloud": True,
-        "aliases": ["gemma4:31b-cloud", "gemma4:cloud"],
+        "prefer": ["gemma4:cloud", "gemma4:31b-cloud"],
     },
+}
+
+# Catálogo plano (UI + API) derivado de familias
+MODEL_CATALOG: List[Dict[str, Any]] = [
+    {
+        "id": fam["id"],
+        "label": fam["label"],
+        "ram": fam["ram"],
+        "role": fam["role"],
+        "is_cloud": fam["is_cloud"],
+        "aliases": list(fam["prefer"]),
+        "family": key,
+    }
+    for key, fam in MODEL_FAMILIES.items()
 ]
 
-DEFAULT_MODEL_ID = "gemma4:e2b-q4"  # el más rápido
+DEFAULT_MODEL_ID = "gemma4:e2b-q4"
+CLOUD_PREFERRED = "gemma4:cloud"
+CLOUD_FALLBACK = "gemma4:31b-cloud"
 
 VALID_ENGINE_MODES = ("manual", "router")
 
@@ -75,8 +92,42 @@ _CONFIG_PATH = os.getenv(
 _config_lock = threading.Lock()
 
 
+def _normalize_name(name: str) -> str:
+    name = (name or "").strip()
+    if name.endswith(":latest"):
+        name = name[: -len(":latest")]
+    return name
+
+
+def _installed_set(installed_names: Sequence[str]) -> set:
+    out = set()
+    for n in installed_names:
+        n = _normalize_name(n)
+        if n:
+            out.add(n)
+    return out
+
+
+def _family_for(name: str) -> Optional[str]:
+    n = _normalize_name(name)
+    for key, fam in MODEL_FAMILIES.items():
+        if n == fam["id"] or n in fam["prefer"]:
+            return key
+    # Heurística por subcadena
+    low = n.lower()
+    if "cloud" in low or "31b" in low:
+        return "cloud"
+    if "12b" in low:
+        return "12b"
+    if "e4b" in low:
+        return "e4b"
+    if "e2b" in low:
+        return "e2b"
+    return None
+
+
 # ══════════════════════════════════════════════════════════════════
-#  Persistencia de configuración (JSON local, sin Postgres)
+#  Persistencia
 # ══════════════════════════════════════════════════════════════════
 
 def load_config() -> Dict[str, Any]:
@@ -86,6 +137,8 @@ def load_config() -> Dict[str, Any]:
         merged = {**DEFAULT_CONFIG, **{k: v for k, v in data.items() if k in DEFAULT_CONFIG}}
         if merged["engineMode"] not in VALID_ENGINE_MODES:
             merged["engineMode"] = DEFAULT_CONFIG["engineMode"]
+        # Migrar ids antiguos (mlx / 31b-cloud) al canónico actual
+        merged["manualModel"] = canonical_model_id(merged.get("manualModel") or DEFAULT_MODEL_ID)
         return merged
     except FileNotFoundError:
         return dict(DEFAULT_CONFIG)
@@ -117,78 +170,95 @@ def save_config(
 
 
 # ══════════════════════════════════════════════════════════════════
-#  Resolución de nombres de modelos contra Ollama
+#  Resolución cuantizado → normal (y cloud liviano)
 # ══════════════════════════════════════════════════════════════════
 
 def canonical_model_id(name: str) -> str:
-    """Normaliza cualquier alias (p. ej. 'gemma4:e2b-q4') a su id canónico del catálogo."""
-    name = (name or "").strip()
-    stripped = name[:-len(":latest")] if name.endswith(":latest") else name
-    for entry in MODEL_CATALOG:
-        if stripped == entry["id"] or stripped in entry["aliases"]:
-            return entry["id"]
-    return name  # modelo fuera de catálogo: se respeta tal cual
+    """Normaliza cualquier alias al id canónico de su familia."""
+    fam_key = _family_for(name)
+    if fam_key:
+        return MODEL_FAMILIES[fam_key]["id"]
+    return _normalize_name(name) or DEFAULT_MODEL_ID
 
 
 def resolve_model_name(requested: str, installed_names: List[str]) -> str:
     """
-    Traduce un nombre solicitado (canónico o alias) al modelo REALMENTE instalado
-    en Ollama. Si no hay lista de instalados (Ollama caído), devuelve el primer
-    alias '-q4' (naming histórico que ya funciona) o el nombre pedido.
+    Resuelve el nombre pedido al modelo REAL instalado en Ollama.
+
+    Orden:
+      1. Preferencias de la familia (cuantizado → normal / cloud → 31b-cloud)
+      2. Si la familia no está, degradar a e2b (q4 → normal)
+      3. Si nada coincide, devolver el pedido (Ollama decidirá)
     """
-    normalized_installed = set()
-    for n in installed_names:
-        normalized_installed.add(n)
-        if n.endswith(":latest"):
-            normalized_installed.add(n[:-len(":latest")])
+    requested = _normalize_name(requested) or DEFAULT_MODEL_ID
+    installed = _installed_set(installed_names)
+    fam_key = _family_for(requested) or "e2b"
+    prefer: List[str] = list(MODEL_FAMILIES[fam_key]["prefer"])
 
-    requested = (requested or "").strip() or DEFAULT_MODEL_ID
-    entry = next(
-        (e for e in MODEL_CATALOG if requested == e["id"] or requested in e["aliases"]),
-        None,
-    )
-
-    if entry is None:
-        # Fuera de catálogo: usarlo si está instalado, si no, dejarlo (Ollama decidirá)
-        return requested
-
-    if normalized_installed:
-        for alias in entry["aliases"]:
-            if alias in normalized_installed:
+    if installed:
+        for alias in prefer:
+            if alias in installed:
+                if alias != requested:
+                    logger.info(f"Modelo '{requested}' → resuelto a '{alias}' (familia {fam_key})")
                 return alias
-        # Modelo ausente: degradar al primer modelo local del catálogo que sí esté
-        for other in MODEL_CATALOG:
-            if other["is_cloud"]:
-                continue
-            for alias in other["aliases"]:
-                if alias in normalized_installed:
-                    logger.warning(f"Modelo '{requested}' no instalado; usando '{alias}'")
-                    return alias
-        return requested
 
-    # Sin información de instalados: alias '-q4' como default histórico funcional
-    q4 = next((a for a in entry["aliases"] if a.endswith("-q4")), None)
-    return q4 or entry["aliases"][0]
+        # Familia ausente: degradar a e2b cuantizado→normal
+        if fam_key != "e2b":
+            for alias in MODEL_FAMILIES["e2b"]["prefer"]:
+                if alias in installed:
+                    logger.warning(f"Familia '{fam_key}' no instalada; usando '{alias}'")
+                    return alias
+
+        # Último recurso: cualquier gemma4 instalado
+        for name in installed:
+            if name.startswith("gemma4:"):
+                logger.warning(f"Usando gemma instalado disponible: '{name}'")
+                return name
+
+        return prefer[0] if prefer else requested
+
+    # Sin tags (Ollama caído): devolver el cuantizado preferido de la familia
+    return prefer[0] if prefer else requested
+
+
+def resolve_cloud(installed_names: List[str]) -> str:
+    """Cloud de menor consumo primero: gemma4:cloud → gemma4:31b-cloud."""
+    return resolve_model_name(CLOUD_PREFERRED, installed_names)
+
+
+def resolve_fast_local(installed_names: List[str]) -> str:
+    """Modelo rápido para router/traductor: e2b-q4 → e2b."""
+    return resolve_model_name(DEFAULT_MODEL_ID, installed_names)
+
+
+def cloud_fallback_chain(installed_names: Optional[List[str]] = None) -> List[str]:
+    """Cadena de fallback cloud ordenada por menor consumo."""
+    installed = _installed_set(installed_names or [])
+    chain = [CLOUD_PREFERRED, CLOUD_FALLBACK]
+    if not installed:
+        return chain
+    return [n for n in chain if n in installed] or chain
 
 
 def catalog_with_availability(installed_names: List[str]) -> List[Dict[str, Any]]:
     """Catálogo enriquecido con disponibilidad real y el nombre instalado resuelto."""
-    normalized = set()
-    for n in installed_names:
-        normalized.add(n)
-        if n.endswith(":latest"):
-            normalized.add(n[:-len(":latest")])
-
+    installed = _installed_set(installed_names)
     result = []
     for entry in MODEL_CATALOG:
-        installed_alias = next((a for a in entry["aliases"] if a in normalized), None)
+        resolved = resolve_model_name(entry["id"], installed_names)
+        # Cloud: instalado solo si existe algún alias cloud real
+        if entry["is_cloud"]:
+            really_installed = any(a in installed for a in entry["aliases"])
+        else:
+            really_installed = any(a in installed for a in entry["aliases"])
         result.append({
             "id": entry["id"],
             "label": entry["label"],
             "ram": entry["ram"],
             "role": entry["role"],
             "isCloud": entry["is_cloud"],
-            "installed": installed_alias is not None or entry["is_cloud"],
-            "resolvedName": installed_alias or resolve_model_name(entry["id"], installed_names),
+            "installed": really_installed,
+            "resolvedName": resolved,
+            "preferOrder": list(entry["aliases"]),
         })
     return result

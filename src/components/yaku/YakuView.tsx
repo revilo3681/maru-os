@@ -184,7 +184,7 @@ export const YakuView: React.FC<YakuViewProps> = ({ userProfile, healthProfile, 
               <Languages size={20} className="text-[#1E3A5F]" />
               <span>Traductor de Lenguas del Perú</span>
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-semibold flex items-center gap-1">
-                <Sparkles size={10} /> IA gemma4:e2b-q4
+                <Sparkles size={10} /> IA e2b-q4 → e2b
               </span>
             </div>
           </div>

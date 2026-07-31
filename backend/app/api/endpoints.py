@@ -278,7 +278,7 @@ async def cognitive_chat(req: ChatRequest):
     installed_names = [m.get("name", "") for m in installed_models]
 
     if engine_mode == "manual":
-        # Modo MANUAL: un modelo fijo para todos los agentes
+        # Modo MANUAL: familia fija · Q4 primero → normal / cloud liviano primero
         model_name = model_config.resolve_model_name(manual_model_requested, installed_names)
         catalog_entry = next(
             (e for e in model_config.MODEL_CATALOG
@@ -286,10 +286,13 @@ async def cognitive_chat(req: ChatRequest):
             None,
         )
         ram = catalog_entry["ram"] if catalog_entry else ram
-        reason = f"{reason} | Modo manual: modelo fijo {model_name}"
+        reason = f"{reason} | Manual: {manual_model_requested} → {model_name} (Q4→normal / cloud liviano)"
     else:
-        # Modo ROUTER: comportamiento automático actual, normalizando el nombre
+        # Modo ROUTER: cada agente pide Q4; se resuelve a normal si no hay cuantizado
+        requested_router = model_name
         model_name = model_config.resolve_model_name(model_name, installed_names)
+        if model_name != requested_router:
+            reason = f"{reason} | Router: {requested_router} → {model_name}"
 
     # 🚦 Interrupción por Confirmación de Consumo (Point 10):
     # Solo aplica en modo router (en manual el usuario ya fijó su modelo):
@@ -539,8 +542,8 @@ Responde en idioma Español con calidez humana."""
 @router.post("/translate")
 async def translate_text(req: TranslateRequest):
     """
-    Traduce texto entre español y lenguas nativas usando gemma4:e2b-q4.
-    También genera la aproximación fonética.
+    Traduce texto entre español y lenguas nativas.
+    Modelo: gemma4:e2b-q4 (cuantizado); si no está instalado → gemma4:e2b.
     """
     prompt = f"""Eres un traductor experto de lenguas originarias del Perú.
 Debes traducir de {req.source_lang} a {req.target_lang}.
@@ -558,22 +561,29 @@ Devuelve ÚNICAMENTE un objeto JSON válido con este formato exacto, sin texto a
 }}
 """
     try:
-        res = await ollama_client.generate(
-            model_name="gemma4:e2b-q4",
-            prompt=prompt,
-            system="Eres el motor de traducción nativo de MARU OS. Responde solo con JSON puro.",
-            temperature=0.2
+        installed = [m.get("name", "") for m in await ollama_client.list_models()]
+        # Siempre preferir e2b-q4; fallback a e2b normal
+        translate_model = model_config.resolve_fast_local(installed)
+        res = await ollama_client.generate_response(
+            translate_model,
+            "Eres el motor de traducción nativo de MARU OS. Responde solo con JSON puro.",
+            prompt,
+            temperature=0.2,
         )
-        content = res.get("response", "").strip()
-        
+        content = (res.get("content") or res.get("response") or "").strip()
+
         # Limpiar markdown de código si el LLM lo incluye
         if content.startswith("```json"):
             content = content.replace("```json", "").replace("```", "").strip()
         elif content.startswith("```"):
             content = content.replace("```", "").strip()
-            
+
         data = json.loads(content)
-        return {"status": "success", "data": data}
+        return {
+            "status": "success",
+            "data": data,
+            "modelUsed": res.get("model", translate_model),
+        }
     except Exception as e:
         logger.error(f"Error en traducción: {e}")
         return {"status": "error", "data": {"translation": "No se pudo generar la traducción. Por favor intenta de nuevo.", "phonetic": ""}}

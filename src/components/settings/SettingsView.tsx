@@ -26,12 +26,12 @@ interface SettingsViewProps {
   onWipeData: () => void;
 }
 
-/** Los 4 modelos seleccionables en modo Manual (Gemma cuantizados + Cloud) */
+/** Los 4 modelos seleccionables en modo Manual (cuantizado → fallback normal automático) */
 const SELECTABLE_MODELS: { id: string; label: string; desc: string; icon: React.ReactNode }[] = [
-  { id: 'gemma4:e2b-q4', label: 'Gemma 4 · E2B (Cuantizado Q4)', desc: 'Ultra rápido · 3.3 GB RAM · por defecto', icon: <Zap size={16} className="text-[#FF9500]" /> },
-  { id: 'gemma4:e4b-q4', label: 'Gemma 4 · E4B (Cuantizado Q4)', desc: 'Equilibrado · 5.2 GB RAM', icon: <Scale size={16} className="text-[#007AFF]" /> },
-  { id: 'gemma4:12b-q4', label: 'Gemma 4 · 12B (Cuantizado Q4)', desc: 'Visión y código de alta precisión · 7.0 GB RAM', icon: <Eye size={16} className="text-[#5856D6]" /> },
-  { id: 'gemma4:31b-cloud', label: 'Gemma 4 · 31B (Nube Cloud)', desc: 'Razonamiento máximo en nube (requiere internet)', icon: <Cloud size={16} className="text-[#8E8E93]" /> }
+  { id: 'gemma4:e2b-q4', label: 'Gemma 4 · E2B (Q4)', desc: 'Cuantizado primero · si no hay Q4 usa gemma4:e2b · por defecto', icon: <Zap size={16} className="text-[#FF9500]" /> },
+  { id: 'gemma4:e4b-q4', label: 'Gemma 4 · E4B (Q4)', desc: 'Cuantizado primero · si no hay Q4 usa gemma4:e4b', icon: <Scale size={16} className="text-[#007AFF]" /> },
+  { id: 'gemma4:12b-q4', label: 'Gemma 4 · 12B (Q4)', desc: 'Cuantizado primero · si no hay Q4 usa gemma4:12b', icon: <Eye size={16} className="text-[#5856D6]" /> },
+  { id: 'gemma4:cloud', label: 'Gemma 4 · Cloud', desc: 'Nube liviana (preferida) · fallback gemma4:31b-cloud', icon: <Cloud size={16} className="text-[#8E8E93]" /> }
 ];
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
@@ -74,7 +74,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   const isModelInstalled = (modelId: string): boolean => {
     const catalogEntry = models?.catalog?.find((c) => c.id === modelId);
     if (catalogEntry) return catalogEntry.installed;
-    return installedModels.includes(modelId);
+    // Familia: Q4 o normal cuentan como disponibles
+    const familyHints: Record<string, string[]> = {
+      'gemma4:e2b-q4': ['gemma4:e2b-q4', 'gemma4:e2b'],
+      'gemma4:e4b-q4': ['gemma4:e4b-q4', 'gemma4:e4b'],
+      'gemma4:12b-q4': ['gemma4:12b-q4', 'gemma4:12b'],
+      'gemma4:cloud': ['gemma4:cloud', 'gemma4:31b-cloud'],
+      'gemma4:31b-cloud': ['gemma4:cloud', 'gemma4:31b-cloud']
+    };
+    const aliases = familyHints[modelId] || [modelId];
+    return aliases.some((a) => installedModels.some((m) => m === a || m.startsWith(`${a}:`)));
+  };
+
+  const resolvedLabel = (modelId: string): string | null => {
+    const entry = models?.catalog?.find((c) => c.id === modelId);
+    if (entry?.resolvedName && entry.resolvedName !== modelId) {
+      return `→ usa ${entry.resolvedName}`;
+    }
+    return null;
   };
 
   const handleToggleAgent = (agentId: AgentId) => {
@@ -183,7 +200,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
               }`}
             >
               Router (Automático)
-              <div className="font-normal text-[10px] mt-0.5 opacity-70">Cada agente elige su mejor modelo</div>
+              <div className="font-normal text-[10px] mt-0.5 opacity-70">Q4 primero · si no hay, versión normal</div>
             </button>
             <button
               onClick={() => engineConfig.save({ engineMode: 'manual' })}
@@ -194,19 +211,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
               }`}
             >
               Manual
-              <div className="font-normal text-[10px] mt-0.5 opacity-70">Un solo modelo para todos los agentes</div>
+              <div className="font-normal text-[10px] mt-0.5 opacity-70">Un modelo fijo · mismo fallback Q4→normal</div>
             </button>
           </div>
+          <p className="text-[11px] text-[var(--maru-text-muted)]">
+            Prioridad: cuantizado (Q4) → normal sin cuantizar. Cloud: <code className="font-mono">gemma4:cloud</code> antes que 31b.
+          </p>
         </div>
 
         {/* Selector de modelo fijo (solo en modo Manual) */}
         {engineConfig.engineMode === 'manual' && (
           <div className="space-y-2">
-            <div className="font-bold text-sm text-[var(--maru-text)]">Modelo local fijo</div>
+            <div className="font-bold text-sm text-[var(--maru-text)]">Modelo fijo (familia)</div>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
               {SELECTABLE_MODELS.map((model) => {
-                const isSelected = engineConfig.manualModel === model.id;
+                const isSelected =
+                  engineConfig.manualModel === model.id ||
+                  (model.id === 'gemma4:cloud' && engineConfig.manualModel === 'gemma4:31b-cloud');
                 const installed = isModelInstalled(model.id);
+                const resolved = resolvedLabel(model.id);
                 return (
                   <button
                     key={model.id}
@@ -224,11 +247,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
                       </div>
                       <span
                         className={`w-2 h-2 rounded-full shrink-0 ${installed ? 'bg-[#34C759]' : 'bg-[#E5E5EA]'}`}
-                        title={installed ? 'Instalado en Ollama' : 'No detectado en Ollama'}
+                        title={installed ? 'Familia disponible en Ollama' : 'No detectado en Ollama'}
                       />
                     </div>
                     <div className="text-[11px] text-[var(--maru-text-muted)] mt-1">{model.desc}</div>
                     <div className="text-[10px] font-mono text-[var(--maru-text-muted)] mt-1 opacity-70">{model.id}</div>
+                    {resolved && (
+                      <div className="text-[10px] font-mono text-[#34C759] mt-0.5">{resolved}</div>
+                    )}
                   </button>
                 );
               })}

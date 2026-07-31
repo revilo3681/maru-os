@@ -185,9 +185,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
         {ollamaActive && (
           <div className="hidden md:block space-y-1 pt-2">
             {[
-              { name: 'gemma4:e4b', ram: '9.6G', role: 'Cerebro diario' },
-              { name: 'gemma4:12b', ram: '7.6G', role: 'Visión & Código' },
-              { name: 'gemma4:e2b', ram: '7.2G', role: 'Ultra rápido' }
+              { name: 'e2b-q4→e2b', ram: '3–7G', role: 'Rápido' },
+              { name: 'e4b-q4→e4b', ram: '5–10G', role: 'Cerebro' },
+              { name: '12b-q4→12b', ram: '7–8G', role: 'Visión' },
+              { name: 'cloud→31b', ram: 'Cloud', role: 'Nube liviana' }
             ].map((m) => (
               <div
                 key={m.name}
