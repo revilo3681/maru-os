@@ -71,6 +71,12 @@ class TTSRequest(BaseModel):
     text: str
     voice: Optional[str] = "es-PE-CamilaNeural"
 
+class TranslateRequest(BaseModel):
+    text: str
+    source_lang: str
+    target_lang: str
+    context_dict: Optional[str] = ""
+
 class LegalUploadRequest(BaseModel):
     name: str
     mimeType: Optional[str] = "application/pdf"
@@ -529,6 +535,48 @@ Responde en idioma Español con calidez humana."""
                 yield json.dumps(fallback_response).encode('utf-8') + b'\n'
 
     return StreamingResponse(generate(), media_type="application/x-ndjson")
+
+@router.post("/translate")
+async def translate_text(req: TranslateRequest):
+    """
+    Traduce texto entre español y lenguas nativas usando gemma4:e2b-q4.
+    También genera la aproximación fonética.
+    """
+    prompt = f"""Eres un traductor experto de lenguas originarias del Perú.
+Debes traducir de {req.source_lang} a {req.target_lang}.
+
+Contexto de vocabulario útil:
+{req.context_dict}
+
+Texto a traducir: "{req.text}"
+
+REGLAS ESTRICTAS:
+Devuelve ÚNICAMENTE un objeto JSON válido con este formato exacto, sin texto adicional ni markdown:
+{{
+  "translation": "texto traducido",
+  "phonetic": "aproximación fonética literal para que un hispanohablante lo lea y suene auténtico"
+}}
+"""
+    try:
+        res = await ollama_client.generate(
+            model_name="gemma4:e2b-q4",
+            prompt=prompt,
+            system="Eres el motor de traducción nativo de MARU OS. Responde solo con JSON puro.",
+            temperature=0.2
+        )
+        content = res.get("response", "").strip()
+        
+        # Limpiar markdown de código si el LLM lo incluye
+        if content.startswith("```json"):
+            content = content.replace("```json", "").replace("```", "").strip()
+        elif content.startswith("```"):
+            content = content.replace("```", "").strip()
+            
+        data = json.loads(content)
+        return {"status": "success", "data": data}
+    except Exception as e:
+        logger.error(f"Error en traducción: {e}")
+        return {"status": "error", "data": {"translation": "No se pudo generar la traducción. Por favor intenta de nuevo.", "phonetic": ""}}
 
 @router.post("/tts")
 async def generate_tts(req: TTSRequest):

@@ -629,5 +629,42 @@ export const ApiService = {
       console.warn('STT backend unavailable, falling back to Web Speech:', e);
     }
     return null;
+  },
+
+  /** Traducción con IA local (gemma4:e2b-q4) */
+  async translateText(text: string, sourceLang: string, targetLang: string, contextDict: string = ''): Promise<{ translation: string; phonetic?: string } | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/translate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, source_lang: sourceLang, target_lang: targetLang, context_dict: contextDict })
+      });
+      if (res.ok) {
+        const result = await res.json();
+        if (result.status === 'success' && result.data) {
+          return result.data;
+        }
+      }
+    } catch (e) {
+      console.warn('Translate API error:', e);
+    }
+    return null;
+  },
+
+  /** Obtener audio TTS */
+  async getTtsAudio(text: string, voice = 'es-PE-AlexNeural'): Promise<Blob | null> {
+    try {
+      const res = await fetch(`${API_BASE_URL}/tts`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text, voice })
+      });
+      if (res.ok) {
+        return await res.blob();
+      }
+    } catch (e) {
+      console.warn('TTS API error:', e);
+    }
+    return null;
   }
 };
