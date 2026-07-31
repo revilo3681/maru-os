@@ -23,28 +23,28 @@ logger = logging.getLogger(__name__)
 # ══════════════════════════════════════════════════════════════════
 MODEL_CATALOG: List[Dict[str, Any]] = [
     {
-        "id": "gemma4:e2b-mlx",
-        "label": "Gemma 4 E2B (más rápido)",
+        "id": "gemma4:e2b-q4",
+        "label": "Gemma 4 E2B (cuantizado - más rápido)",
         "ram": "3.3 GB",
         "role": "Ultra rápido / Default",
         "is_cloud": False,
-        "aliases": ["gemma4:e2b-mlx", "gemma4:e2b-q4", "gemma4:e2b"],
+        "aliases": ["gemma4:e2b-q4", "gemma4:e2b-mlx", "gemma4:e2b"],
     },
     {
-        "id": "gemma4:e4b-mlx",
-        "label": "Gemma 4 E4B (equilibrado)",
+        "id": "gemma4:e4b-q4",
+        "label": "Gemma 4 E4B (cuantizado - equilibrado)",
         "ram": "5.2 GB",
         "role": "Cerebro principal",
         "is_cloud": False,
-        "aliases": ["gemma4:e4b-mlx", "gemma4:e4b-q4", "gemma4:e4b"],
+        "aliases": ["gemma4:e4b-q4", "gemma4:e4b-mlx", "gemma4:e4b"],
     },
     {
-        "id": "gemma4:12b-mlx",
-        "label": "Gemma 4 12B (máxima precisión local)",
+        "id": "gemma4:12b-q4",
+        "label": "Gemma 4 12B (cuantizado - máxima precisión)",
         "ram": "7.0 GB",
         "role": "Visión & Código de alta precisión",
         "is_cloud": False,
-        "aliases": ["gemma4:12b-mlx", "gemma4:12b-q4", "gemma4:12b"],
+        "aliases": ["gemma4:12b-q4", "gemma4:12b-mlx", "gemma4:12b"],
     },
     {
         "id": "gemma4:31b-cloud",
@@ -56,7 +56,7 @@ MODEL_CATALOG: List[Dict[str, Any]] = [
     },
 ]
 
-DEFAULT_MODEL_ID = "gemma4:e2b-mlx"  # el más rápido
+DEFAULT_MODEL_ID = "gemma4:e2b-q4"  # el más rápido
 
 VALID_ENGINE_MODES = ("manual", "router")
 

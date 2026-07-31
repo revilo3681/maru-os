@@ -26,12 +26,12 @@ interface SettingsViewProps {
   onWipeData: () => void;
 }
 
-/** Los 4 modelos locales seleccionables en modo Manual */
+/** Los 4 modelos seleccionables en modo Manual (Gemma cuantizados + Cloud) */
 const SELECTABLE_MODELS: { id: string; label: string; desc: string; icon: React.ReactNode }[] = [
-  { id: 'gemma4:e2b-mlx', label: 'Gemma 4 · E2B (MLX)', desc: 'Más rápido · por defecto', icon: <Zap size={16} className="text-[#FF9500]" /> },
-  { id: 'gemma4:e4b-mlx', label: 'Gemma 4 · E4B (MLX)', desc: 'Equilibrado entre velocidad y calidad', icon: <Scale size={16} className="text-[#007AFF]" /> },
-  { id: 'gemma4:12b-mlx', label: 'Gemma 4 · 12B (MLX)', desc: 'Visión y código avanzado', icon: <Eye size={16} className="text-[#5856D6]" /> },
-  { id: 'gemma4:31b-cloud', label: 'Gemma 4 · 31B (Cloud)', desc: 'Nube · máxima capacidad', icon: <Cloud size={16} className="text-[#8E8E93]" /> }
+  { id: 'gemma4:e2b-q4', label: 'Gemma 4 · E2B (Cuantizado Q4)', desc: 'Ultra rápido · 3.3 GB RAM · por defecto', icon: <Zap size={16} className="text-[#FF9500]" /> },
+  { id: 'gemma4:e4b-q4', label: 'Gemma 4 · E4B (Cuantizado Q4)', desc: 'Equilibrado · 5.2 GB RAM', icon: <Scale size={16} className="text-[#007AFF]" /> },
+  { id: 'gemma4:12b-q4', label: 'Gemma 4 · 12B (Cuantizado Q4)', desc: 'Visión y código de alta precisión · 7.0 GB RAM', icon: <Eye size={16} className="text-[#5856D6]" /> },
+  { id: 'gemma4:31b-cloud', label: 'Gemma 4 · 31B (Nube Cloud)', desc: 'Razonamiento máximo en nube (requiere internet)', icon: <Cloud size={16} className="text-[#8E8E93]" /> }
 ];
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {

@@ -4,7 +4,7 @@ import { AGENTS_CATALOG } from '../data/agentsData';
 
 const DEFAULT_CONFIG: EngineConfig = {
   engineMode: 'manual',
-  manualModel: 'gemma4:e2b-mlx',
+  manualModel: 'gemma4:e2b-q4',
   enabledAgents: AGENTS_CATALOG.map((a) => a.id)
 };
 

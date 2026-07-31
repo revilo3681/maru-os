@@ -273,7 +273,7 @@ async def cognitive_chat(req: ChatRequest):
     # Solo aplica en modo router (en manual el usuario ya fijó su modelo):
     needs_upgrade_approval = (
         engine_mode == "router"
-        and model_config.canonical_model_id(model_name) == "gemma4:12b-mlx"
+        and model_config.canonical_model_id(model_name) == "gemma4:12b-q4"
         and (not req.confirmUpgrade)
         and (not req.manualAgent)
     )

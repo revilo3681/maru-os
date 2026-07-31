@@ -140,7 +140,7 @@ export const NotesView: React.FC = () => {
         agentId: 'aya',
         manualAgent: true,
         engineMode: 'manual',
-        manualModel: 'gemma4:e2b-mlx'
+        manualModel: 'gemma4:e2b-q4'
       });
       const reply = data?.content?.trim()
         || (() => {

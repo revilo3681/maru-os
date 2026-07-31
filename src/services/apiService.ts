@@ -144,7 +144,7 @@ export const ApiService = {
       if (directRes.ok) {
         const data = await directRes.json();
         const installedModels = (data.models || []).map((m: { name: string }) => m.name);
-        return { ollamaConnected: true, installedModels, catalog: [], defaultModel: 'gemma4:e2b-mlx' };
+        return { ollamaConnected: true, installedModels, catalog: [], defaultModel: 'gemma4:e2b-q4' };
       }
     } catch (e) {
       console.warn("Direct Ollama tags check failed:", e);
