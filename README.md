@@ -157,3 +157,8 @@ npm run dev
 
 ## 📄 Licencia
 Desarrollado con ❤️ para empoderar la soberanía tecnológica, la privacidad y el bienestar local.
+
+reviciones oliver
+
+hola como estas
+
