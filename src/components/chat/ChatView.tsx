@@ -306,24 +306,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
   ];
 
   return (
-    <div className="flex flex-col h-full bg-[#F5F1E8] text-[#2C3E50] relative overflow-hidden">
-      {/* Header */}
-      <div className="bg-white border-b border-[#E3DCCB] px-6 py-4 flex items-center justify-between shrink-0 shadow-sm z-10">
+    <div className="flex flex-col h-full bg-white text-[var(--maru-text)] relative overflow-hidden">
+      {/* Header — clear glassmorphism */}
+      <div className="bg-white/80 backdrop-blur-xl border-b border-[var(--maru-border-soft)] px-6 py-4 flex items-center justify-between shrink-0 z-10">
         <div className="flex items-center gap-3">
           <div
-            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold text-lg shadow"
-            style={{ backgroundColor: currentAgent.colorPrimary }}
+            className="w-10 h-10 rounded-full flex items-center justify-center text-white font-display font-bold text-lg shadow-sm"
+            style={{ backgroundColor: currentAgent.colorAccent || currentAgent.colorPrimary }}
           >
             {currentAgent.name[0]}
           </div>
           <div>
-            <div className="flex items-center gap-2">
-              <h2 className="font-serif font-bold text-lg text-[#1E3A5F]">{currentAgent.name}</h2>
-              <span className="text-xs px-2 py-0.5 rounded-full font-mono bg-[#4A9B9D]/15 text-[#4A9B9D] font-medium">
+            <div className="flex items-center gap-2 flex-wrap">
+              <h2 className="font-display font-bold text-lg text-[var(--maru-text)]">{currentAgent.name}</h2>
+              <span className="text-xs px-2 py-0.5 rounded-md font-mono bg-[#007AFF]/10 text-[#007AFF] font-medium">
                 {currentAgent.specialty}
               </span>
             </div>
-            <p className="text-xs italic text-[#6B7F8C] font-serif">"{currentAgent.catchphrase}"</p>
+            <p className="text-xs text-[var(--maru-text-muted)] font-sans">&ldquo;{currentAgent.catchphrase}&rdquo;</p>
           </div>
         </div>
 
@@ -332,16 +332,16 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onClick={() => setAutoAgent(!autoAgent)}
             className={`px-3 py-1.5 rounded-lg text-xs font-mono transition-colors border ${
               autoAgent
-                ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]'
-                : 'bg-[#F5F1E8] text-[#2C3E50] border-[#E3DCCB]'
+                ? 'bg-[var(--maru-gold)]/20 text-[var(--maru-gold)] border-[var(--maru-gold)]/40'
+                : 'bg-transparent text-[var(--maru-text-muted)] border-[var(--maru-border-soft)]'
             }`}
           >
-            {autoAgent ? '🤖 Auto-Router ON' : '⚙️ Agente Fijo'}
+            {autoAgent ? 'Auto-Router ON' : 'Agente Fijo'}
           </button>
           {messages.length > 0 && (
             <button
               onClick={clearChat}
-              className="p-1.5 text-[#6B7F8C] hover:text-[#C0392B] hover:bg-red-50 rounded-lg transition-colors"
+              className="p-1.5 text-[var(--maru-text-muted)] hover:text-rose-400 hover:bg-white/5 rounded-lg transition-colors"
               title="Borrar historial de este agente"
             >
               <RefreshCw size={15} />
@@ -350,21 +350,21 @@ export const ChatView: React.FC<ChatViewProps> = ({
         </div>
       </div>
 
-      {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
+      {/* Messages — warm reading surface for long-form clarity */}
+      <div className="flex-1 overflow-y-auto maru-read-scroll p-4 sm:p-6 space-y-6">
         {messages.length === 0 ? (
           <div className="h-full flex flex-col items-center justify-center text-center space-y-4 max-w-md mx-auto py-12">
             <div
-              className="w-16 h-16 rounded-full text-white font-serif font-bold text-3xl flex items-center justify-center shadow-lg"
-              style={{ backgroundColor: currentAgent.colorPrimary }}
+              className="w-16 h-16 rounded-full text-white font-display font-bold text-3xl flex items-center justify-center shadow-lg"
+              style={{ backgroundColor: currentAgent.colorAccent || currentAgent.colorPrimary }}
             >
               {currentAgent.name[0]}
             </div>
-            <h3 className="text-2xl font-serif font-bold text-[#1E3A5F]">
+            <h3 className="text-2xl font-display font-bold text-[var(--maru-navy)]">
               Hola {userProfile.name}, soy {currentAgent.name}
             </h3>
-            <p className="text-sm text-[#6B7F8C] italic font-serif">"{currentAgent.catchphrase}"</p>
-            <p className="text-xs text-[#6B7F8C]">
+            <p className="text-sm text-[var(--maru-read-muted)] italic font-serif">&ldquo;{currentAgent.catchphrase}&rdquo;</p>
+            <p className="text-xs text-[var(--maru-read-muted)]">
               {currentAgent.specialty} · Este es tu chat privado con {currentAgent.name}.
               Tus mensajes solo aparecen aquí.
             </p>
@@ -373,9 +373,9 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 <button
                   key={i}
                   onClick={() => setInputText(prompt)}
-                  className="p-3 bg-white border border-[#E3DCCB] rounded-xl text-xs text-left hover:bg-[#1E3A5F] hover:text-white transition-all shadow-sm"
+                  className="p-3 bg-[#F9FAFB] border border-[#E5E5EA] rounded-2xl text-xs text-left hover:bg-[#F2F2F7] hover:text-[#1C1C1E] transition-all"
                 >
-                  "{prompt}"
+                  &ldquo;{prompt}&rdquo;
                 </button>
               ))}
             </div>
@@ -389,18 +389,18 @@ export const ChatView: React.FC<ChatViewProps> = ({
                 className={`flex flex-col ${isUser ? 'items-end' : 'items-start'} space-y-1`}
               >
                 {!isUser && (
-                  <div className="flex items-center gap-2 text-xs font-mono text-[#6B7F8C] pl-1">
-                    <span className="w-2 h-2 rounded-full" style={{ backgroundColor: currentAgent.colorAccent }} />
-                    <span className="font-bold text-[#1E3A5F]">{currentAgent.name}</span>
+                  <div className="flex items-center gap-2 text-xs font-sans text-[var(--maru-text-muted)] pl-1">
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: currentAgent.colorAccent }} />
+                    <span className="font-semibold text-[var(--maru-text)]">{currentAgent.name}</span>
                     <span>· {msg.timestamp}</span>
                   </div>
                 )}
 
                 <div
-                  className={`max-w-2xl rounded-2xl p-4 sm:p-5 shadow-sm space-y-3 ${
+                  className={`max-w-2xl rounded-[1.25rem] p-3 sm:p-4 shadow-sm space-y-2 ${
                     isUser
-                      ? 'bg-[#1E3A5F] text-white rounded-br-none'
-                      : 'bg-white border border-[#E3DCCB] text-[#2C3E50] rounded-bl-none'
+                      ? 'bg-[#007AFF] text-white rounded-br-sm'
+                      : 'bg-[#F2F2F7] text-[var(--maru-text)] rounded-bl-sm'
                   }`}
                 >
                   {/* File attachment */}
@@ -613,15 +613,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
       </div>
 
       {/* Input bar */}
-      <div className="p-4 bg-white border-t border-[#E3DCCB] shrink-0 z-10 space-y-2">
+      <div className="p-4 bg-white/90 border-t border-[var(--maru-read-line)] shrink-0 z-10 space-y-2 backdrop-blur-sm">
         {attachedFile && (
-          <div className="flex items-center justify-between p-2 bg-[#F5F1E8] rounded-xl text-xs border border-[#E3DCCB]">
+          <div className="flex items-center justify-between p-2 bg-[var(--maru-read-bg)] rounded-xl text-xs border border-[var(--maru-read-line)]">
             <div className="flex items-center gap-2">
-              <FileText size={16} className="text-[#4A9B9D]" />
+              <FileText size={16} className="text-[var(--maru-gold-deep)]" />
               <span className="font-bold">{attachedFile.name}</span>
-              <span className="text-[#6B7F8C]">({attachedFile.sizeFormatted})</span>
+              <span className="text-[var(--maru-read-muted)]">({attachedFile.sizeFormatted})</span>
             </div>
             <button onClick={() => setAttachedFile(null)} className="text-[#C0392B] font-bold p-1">✕</button>
+          </div>
+        )}
+
+        {isListening && (
+          <div className="flex items-center justify-center p-2 bg-[#C0392B]/10 rounded-xl text-xs border border-[#C0392B]/30 animate-pulse">
+            <div className="flex items-center gap-2 text-[#C0392B] font-bold">
+              <span className="w-2.5 h-2.5 rounded-full bg-[#C0392B] animate-ping" />
+              Escuchando audio (Whisper-fast STT activo)...
+            </div>
           </div>
         )}
 
@@ -636,7 +645,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
           <button
             onClick={() => fileInputRef.current?.click()}
-            className="p-2.5 text-[#6B7F8C] hover:text-[#1E3A5F] hover:bg-[#F5F1E8] rounded-xl transition-colors"
+            className="p-2.5 text-[var(--maru-read-muted)] hover:text-[var(--maru-navy)] hover:bg-[var(--maru-read-bg)] rounded-xl transition-colors"
             title="Adjuntar archivo"
           >
             <Paperclip size={20} />
@@ -645,7 +654,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
           <button
             onClick={handleToggleMic}
             className={`p-2.5 rounded-xl transition-colors ${
-              isListening ? 'bg-[#C0392B] text-white animate-pulse' : 'text-[#6B7F8C] hover:text-[#1E3A5F] hover:bg-[#F5F1E8]'
+              isListening ? 'bg-[#C0392B] text-white animate-pulse' : 'text-[var(--maru-read-muted)] hover:text-[var(--maru-navy)] hover:bg-[var(--maru-read-bg)]'
             }`}
             title="Hablar por micrófono"
           >
@@ -659,7 +668,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSendMessage()}
             placeholder={`Escríbele a ${currentAgent.name}...`}
             disabled={generatingAgents.has(activeAgentId)}
-            className="flex-1 px-4 py-2.5 bg-[#F5F1E8]/60 border border-[#E3DCCB] rounded-xl text-sm text-[#2C3E50] focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
+            className="flex-1 px-4 py-2.5 bg-[#F2F2F7] border border-transparent rounded-full text-sm text-[var(--maru-text)] focus:outline-none focus:ring-2 focus:ring-[#007AFF]/50"
           />
 
           {generatingAgents.has(activeAgentId) ? (
@@ -681,7 +690,7 @@ export const ChatView: React.FC<ChatViewProps> = ({
             <button
               onClick={handleSendMessage}
               disabled={!inputText.trim() && !attachedFile}
-              className="p-2.5 bg-[#1E3A5F] hover:bg-[#2C3E50] disabled:opacity-40 text-white rounded-xl transition-colors shadow"
+              className="p-2.5 bg-[#007AFF] text-white disabled:opacity-40 rounded-full transition-colors shadow-sm"
             >
               <Send size={18} />
             </button>

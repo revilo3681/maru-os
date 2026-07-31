@@ -175,41 +175,49 @@ export const ApiService = {
     // 2. Direct Ollama fallback query from browser
     try {
       const prompt = params.prompt.toLowerCase();
-      // Mini-router para seleccionar agente
       let agentId = params.agentId || "aya";
-      let reason = "Agente predeterminado";
+      let reason = "Respuesta rápida";
+      let isDeepThinking = false;
+
       if (!params.manualAgent) {
         if (/dolor|fiebre|síntoma|médico|salud|alergia|pastilla|medicina|comer|medicament/.test(prompt)) {
-          agentId = "aya"; reason = "Tema de salud detectado";
+          agentId = "aya"; reason = "Tema de salud complejo detectado"; isDeepThinking = true;
         } else if (/código|react|python|bug|función|error|script|typescript|deploy/.test(prompt)) {
-          agentId = "kipu"; reason = "Código/programación detectado";
+          agentId = "kipu"; reason = "Código/programación detectado"; isDeepThinking = true;
         } else if (/ley|legal|contrato|derecho|norma|artículo|demanda/.test(prompt)) {
-          agentId = "inti"; reason = "Consulta legal detectada";
+          agentId = "inti"; reason = "Consulta legal compleja detectada"; isDeepThinking = true;
         } else if (/huaico|sismo|temblor|emergencia|evacuar|alerta|terremoto/.test(prompt)) {
-          agentId = "tupac"; reason = "Emergencia detectada";
+          agentId = "tupac"; reason = "Emergencia detectada"; isDeepThinking = true;
         } else if (/estrés|meditar|ansiedad|hábito|ejercicio|dormir|calma/.test(prompt)) {
           agentId = "sumaq"; reason = "Bienestar detectado";
-        } else if (/perú|quechua|inei|chosica|cusco|gastronomía|historia/.test(prompt)) {
-          agentId = "yaku"; reason = "Consulta sobre Perú";
+        } else if (/perú|quechua|inei|chosica|cusco|gastronomía|historia|clima|tiempo/.test(prompt)) {
+          agentId = "yaku"; reason = "Consulta sobre Perú/Clima"; isDeepThinking = true;
         }
       }
 
-      const MODEL_MAP: Record<string, string> = {
-        aya:   "gemma4:12b-q4",
-        inti:  "gemma4:e4b-q4",
-        kipu:  "gemma4:12b-q4",
-        sumaq: "gemma4:e4b-q4",
-        pacha: "gemma4:e4b-q4",
-        tupac: "gemma4:e2b-q4",
-        yaku:  "gemma4:31b-cloud"
-      };
-      const RAM_MAP: Record<string, string> = {
-        aya: "7.6 GB", inti: "9.6 GB", kipu: "7.6 GB",
-        sumaq: "9.6 GB", pacha: "9.6 GB", tupac: "7.2 GB", yaku: "Cloud"
-      };
-      
-      let modelName = params.fileAttachment ? "gemma4:31b-cloud" : (MODEL_MAP[agentId] || "gemma4:12b-q4");
-      let agentRAM = params.fileAttachment ? "Cloud" : (RAM_MAP[agentId] || "7.6 GB");
+      let modelName = "gemma4:e2b";
+      let agentRAM = "3.2 GB";
+
+      if (params.fileAttachment) {
+        modelName = "gemma4:31b-cloud";
+        agentRAM = "Cloud";
+      } else if (isDeepThinking || params.manualAgent) {
+        const MODEL_MAP: Record<string, string> = {
+          aya:   "gemma4:12b",
+          inti:  "gemma4:e4b",
+          kipu:  "gemma4:12b",
+          sumaq: "gemma4:e4b",
+          pacha: "gemma4:e4b",
+          tupac: "gemma4:e2b",
+          yaku:  "gemma4:31b-cloud"
+        };
+        const RAM_MAP: Record<string, string> = {
+          aya: "7.6 GB", inti: "9.6 GB", kipu: "7.6 GB",
+          sumaq: "9.6 GB", pacha: "9.6 GB", tupac: "7.2 GB", yaku: "Cloud"
+        };
+        modelName = MODEL_MAP[agentId] || "gemma4:12b";
+        agentRAM = RAM_MAP[agentId] || "7.6 GB";
+      }
 
       // Verificación dinámica del modelo
       try {
@@ -301,6 +309,7 @@ export const ApiService = {
 
         const agentName = { aya: "Aya", inti: "Inti", kipu: "Kipu", sumaq: "Sumaq", pacha: "Pacha", tupac: "Tupac", yaku: "Yaku" }[agentId] || "Aya";
         const isLocal = !modelName.includes('cloud');
+        const isFastModel = modelName === "gemma4:e2b" || modelName === "llama3.2:1b";
 
         return {
           agentId: agentId as AgentId,
@@ -309,7 +318,7 @@ export const ApiService = {
           modelRAM: agentRAM,
           isLocal: isLocal,
           decisionReason: reason + " (Directo al navegador)",
-          thinkingSteps: [
+          thinkingSteps: isFastModel ? [] : [
             `🧠 Solicitud analizada → ${agentName} con ${modelName}... ✓`,
             `> Conectado a Ollama local (puerto 11434)... ✓`,
             `> Sintetizando respuesta cognitiva en GPU M4... ✓`

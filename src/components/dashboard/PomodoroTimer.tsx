@@ -59,13 +59,13 @@ export const PomodoroTimer: React.FC = () => {
   const formattedTime = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 
   return (
-    <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm space-y-4">
-      <div className="flex items-center justify-between border-b border-[#E3DCCB] pb-3">
-        <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F]">
-          <Timer className="text-[#4A9B9D]" size={18} />
+    <div className="bg-white border border-[var(--maru-border-soft)] p-5 rounded-2xl shadow-sm space-y-4">
+      <div className="flex items-center justify-between border-b border-[var(--maru-border-soft)] pb-3">
+        <div className="flex items-center gap-2 text-sm font-display font-semibold text-[var(--maru-text)]">
+          <Timer className="text-[var(--maru-gold)]" size={18} />
           <span>Cronómetro Pomodoro</span>
         </div>
-        <span className="text-xs font-mono text-[#5A8F6B] bg-[#5A8F6B]/10 px-2 py-0.5 rounded-full flex items-center gap-1">
+        <span className="text-xs font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded flex items-center gap-1">
           <CheckCircle size={12} />
           {completedCycles} ciclos hoy
         </span>
@@ -74,39 +74,45 @@ export const PomodoroTimer: React.FC = () => {
       <div className="flex justify-center gap-1 text-xs font-mono">
         <button
           onClick={() => switchMode('focus')}
-          className={`px-3 py-1 rounded-lg transition-colors ${
-            mode === 'focus' ? 'bg-[#1E3A5F] text-white font-semibold' : 'bg-[#F5F1E8] text-[#2C3E50]'
+          className={`px-3 py-1 rounded-xl transition-colors ${
+            mode === 'focus'
+              ? 'bg-[var(--maru-gold)]/10 text-[var(--maru-gold)] border border-[var(--maru-gold)]/20 font-semibold'
+              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
           }`}
         >
           Enfoque (25m)
         </button>
         <button
           onClick={() => switchMode('shortBreak')}
-          className={`px-3 py-1 rounded-lg transition-colors ${
-            mode === 'shortBreak' ? 'bg-[#4A9B9D] text-white font-semibold' : 'bg-[#F5F1E8] text-[#2C3E50]'
+          className={`px-3 py-1 rounded-xl transition-colors ${
+            mode === 'shortBreak'
+              ? 'bg-[#34C759]/10 text-[#34C759] border border-[#34C759]/20 font-semibold'
+              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
           }`}
         >
           Descanso (5m)
         </button>
         <button
           onClick={() => switchMode('longBreak')}
-          className={`px-3 py-1 rounded-lg transition-colors ${
-            mode === 'longBreak' ? 'bg-[#B8924A] text-white font-semibold' : 'bg-[#F5F1E8] text-[#2C3E50]'
+          className={`px-3 py-1 rounded-xl transition-colors ${
+            mode === 'longBreak'
+              ? 'bg-[#FF9500]/10 text-[#FF9500] border border-[#FF9500]/20 font-semibold'
+              : 'bg-[#F2F2F7] text-[var(--maru-text-muted)] border border-transparent hover:bg-gray-200'
           }`}
         >
           Largo (15m)
         </button>
       </div>
 
-      <div className="text-center font-mono text-4xl sm:text-5xl font-bold tracking-wider text-[#1E3A5F] py-2">
+      <div className="text-center font-mono text-4xl sm:text-5xl font-bold tracking-wider text-[var(--maru-text)] py-2">
         {formattedTime}
       </div>
 
       <div className="flex justify-center gap-3">
         <button
           onClick={toggleTimer}
-          className={`px-6 py-2.5 rounded-xl font-medium text-xs text-white flex items-center gap-2 shadow transition-all ${
-            isRunning ? 'bg-[#B8924A] hover:bg-[#A8823A]' : 'bg-[#1E3A5F] hover:bg-[#2C3E50]'
+          className={`px-6 py-2.5 rounded-xl font-display text-xs flex items-center gap-2 transition-all ${
+            isRunning ? 'maru-btn-ghost' : 'maru-btn-gold'
           }`}
         >
           {isRunning ? <Pause size={16} /> : <Play size={16} />}
@@ -115,7 +121,7 @@ export const PomodoroTimer: React.FC = () => {
 
         <button
           onClick={resetTimer}
-          className="p-2.5 border border-[#E3DCCB] text-[#2C3E50] hover:bg-[#F5F1E8] rounded-xl transition-colors"
+          className="p-2.5 border border-[var(--maru-border-soft)] text-[var(--maru-text-muted)] hover:text-[var(--maru-text)] hover:bg-[#F2F2F7] rounded-xl transition-colors"
           title="Reiniciar"
         >
           <RotateCcw size={16} />

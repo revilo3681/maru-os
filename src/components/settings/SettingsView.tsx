@@ -52,40 +52,40 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[#F5F1E8] text-[#2C3E50]">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[var(--maru-bg)] text-[var(--maru-text)]">
       <div className="space-y-1">
-        <div className="text-xs font-mono uppercase tracking-wider text-[#1E3A5F]">Configuración & Privacidad</div>
-        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3A5F]">
+        <div className="text-xs font-mono uppercase tracking-wider text-[var(--maru-text-muted)]">Configuración & Privacidad</div>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)]">
           Ajustes del Sistema MARU OS
         </h1>
-        <p className="text-xs text-[#6B7F8C]">
+        <p className="text-xs text-[var(--maru-text-muted)]">
           Controla la privacidad, seguridad, modo efímero y exportación de tus datos.
         </p>
       </div>
 
       {/* Privacidad & Modo Efímero */}
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="font-serif font-bold text-lg text-[#1E3A5F] border-b border-[#E3DCCB] pb-2 flex items-center gap-2">
-          <ShieldCheck className="text-[#4A9B9D]" size={20} />
+      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <ShieldCheck className="text-[#34C759]" size={20} />
           Privacidad & Modos de Memoria
         </h3>
 
         <div className="space-y-3">
           {/* Ephemeral Mode Toggle */}
-          <div className="flex items-center justify-between p-4 bg-[#F5F1E8] rounded-xl border border-[#E3DCCB]">
+          <div className="flex items-center justify-between p-4 bg-[#F2F2F7] rounded-xl border border-transparent">
             <div className="space-y-0.5">
-              <div className="font-bold text-sm text-[#1E3A5F] flex items-center gap-2">
-                <Flame size={18} className="text-[#C0392B]" />
-                🔴 Modo Efímero (Sin Guardar Historial)
+              <div className="font-bold text-sm text-[var(--maru-text)] flex items-center gap-2">
+                <Flame size={18} className="text-[#FF3B30]" />
+                Modo Efímero (Sin Guardar Historial)
               </div>
-              <p className="text-xs text-[#6B7F8C]">
+              <p className="text-xs text-[var(--maru-text-muted)]">
                 Cuando está activo, ninguna conversación o dato se guarda en PostgreSQL ni en el grafo RAG.
               </p>
             </div>
             <button
               onClick={() => handleToggleSettings('ephemeralMode')}
               className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
-                settings.ephemeralMode ? 'bg-[#C0392B]' : 'bg-[#E3DCCB]'
+                settings.ephemeralMode ? 'bg-[#FF3B30]' : 'bg-[#E5E5EA]'
               }`}
             >
               <div
@@ -97,20 +97,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
           </div>
 
           {/* Voice Readout Toggle */}
-          <div className="flex items-center justify-between p-4 bg-[#F5F1E8] rounded-xl border border-[#E3DCCB]">
+          <div className="flex items-center justify-between p-4 bg-[#F2F2F7] rounded-xl border border-transparent">
             <div className="space-y-0.5">
-              <div className="font-bold text-sm text-[#1E3A5F] flex items-center gap-2">
-                <Volume2 size={18} className="text-[#4A9B9D]" />
+              <div className="font-bold text-sm text-[var(--maru-text)] flex items-center gap-2">
+                <Volume2 size={18} className="text-[#007AFF]" />
                 Lectura Automática de Voz (TTS)
               </div>
-              <p className="text-xs text-[#6B7F8C]">
+              <p className="text-xs text-[var(--maru-text-muted)]">
                 MARU OS leerá cada respuesta generada con la voz del agente activo.
               </p>
             </div>
             <button
               onClick={() => handleToggleSettings('voiceReadoutEnabled')}
               className={`w-12 h-6 rounded-full transition-colors relative p-0.5 ${
-                settings.voiceReadoutEnabled ? 'bg-[#4A9B9D]' : 'bg-[#E3DCCB]'
+                settings.voiceReadoutEnabled ? 'bg-[#34C759]' : 'bg-[#E5E5EA]'
               }`}
             >
               <div
@@ -124,34 +124,34 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
       </div>
 
       {/* Gmail Integración Real */}
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="font-serif font-bold text-lg text-[#1E3A5F] border-b border-[#E3DCCB] pb-2 flex items-center gap-2">
-          <Mail className="text-[#C0392B]" size={20} />
+      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Mail className="text-[#FF3B30]" size={20} />
           Conexión con Gmail (Lectura & Borradores)
         </h3>
-        <p className="text-xs text-[#6B7F8C]">
+        <p className="text-xs text-[var(--maru-text-muted)]">
           Ingresa tus credenciales o contraseña de aplicación (App Password de 16 dígitos de Google) para autorizar la lectura de notificaciones en segundo plano y la creación de borradores directos.
         </p>
 
         <div className="space-y-3 max-w-md text-xs">
           <div>
-            <label className="block font-bold text-[#1E3A5F] mb-1">Correo Gmail:</label>
+            <label className="block font-bold text-[var(--maru-text)] mb-1">Correo Gmail:</label>
             <input 
               type="email" 
               value={gmailEmail} 
               onChange={(e) => setGmailEmail(e.target.value)} 
               placeholder="tuusuario@gmail.com"
-              className="w-full px-3 py-2 border border-[#E3DCCB] rounded-xl bg-[#F5F1E8]/50"
+              className="w-full px-3 py-2 border border-transparent rounded-xl bg-[#F2F2F7] focus:border-[#007AFF] outline-none"
             />
           </div>
           <div>
-            <label className="block font-bold text-[#1E3A5F] mb-1">Contraseña de Aplicación / App Token:</label>
+            <label className="block font-bold text-[var(--maru-text)] mb-1">Contraseña de Aplicación / App Token:</label>
             <input 
               type="password" 
               value={gmailAppPass} 
               onChange={(e) => setGmailAppPass(e.target.value)} 
               placeholder="•••• •••• •••• ••••"
-              className="w-full px-3 py-2 border border-[#E3DCCB] rounded-xl bg-[#F5F1E8]/50 font-mono"
+              className="w-full px-3 py-2 border border-transparent rounded-xl bg-[#F2F2F7] font-mono focus:border-[#007AFF] outline-none"
             />
           </div>
           <button 
@@ -161,7 +161,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
               setGmailSaved(true);
               setTimeout(() => setGmailSaved(false), 3000);
             }}
-            className="px-4 py-2 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-xl font-bold transition-all"
+            className="px-4 py-2 bg-[#007AFF] hover:bg-[#0056B3] text-white rounded-xl font-bold transition-all shadow-sm"
           >
             {gmailSaved ? '✓ Credenciales Guardadas Localmente' : 'Guardar Credenciales Gmail'}
           </button>
@@ -169,35 +169,35 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
       </div>
 
       {/* Account & Recovery Phrase */}
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="font-serif font-bold text-lg text-[#1E3A5F] border-b border-[#E3DCCB] pb-2 flex items-center gap-2">
-          <KeyRound className="text-[#B8924A]" size={20} />
+      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <KeyRound className="text-[#FF9500]" size={20} />
           Seguridad & Frase de Recuperación
         </h3>
 
         <div className="space-y-3 text-xs">
           <div>
-            <span className="font-bold text-[#1E3A5F]">Usuario:</span> {account?.username || 'oliver_revilo'}
+            <span className="font-bold text-[var(--maru-text)]">Usuario:</span> {account?.username || 'oliver_revilo'}
           </div>
           {account?.passwordHint && (
             <div>
-              <span className="font-bold text-[#1E3A5F]">Pista de Contraseña:</span> {account.passwordHint}
+              <span className="font-bold text-[var(--maru-text)]">Pista de Contraseña:</span> {account.passwordHint}
             </div>
           )}
 
           <div className="pt-2">
             <button
               onClick={() => setShowSeed(!showSeed)}
-              className="px-4 py-2 border border-[#E3DCCB] rounded-xl text-xs font-mono text-[#2C3E50] hover:bg-[#F5F1E8]"
+              className="px-4 py-2 border border-[var(--maru-border-soft)] rounded-xl text-xs font-mono text-[var(--maru-text)] hover:bg-[#F2F2F7]"
             >
               {showSeed ? 'Ocultar Frase de 12 Palabras' : '👁️ Ver Frase de 12 Palabras'}
             </button>
 
             {showSeed && account?.recoveryPhrase && (
-              <div className="mt-3 p-4 bg-[#1E3A5F] text-white rounded-xl font-mono grid grid-cols-3 sm:grid-cols-4 gap-2">
+              <div className="mt-3 p-4 bg-[#F2F2F7] text-[var(--maru-text)] rounded-xl font-mono grid grid-cols-3 sm:grid-cols-4 gap-2">
                 {account.recoveryPhrase.map((word, idx) => (
-                  <div key={idx} className="bg-[#2C3E50] p-1.5 rounded">
-                    <span className="text-[#4A9B9D]">{idx + 1}.</span> {word}
+                  <div key={idx} className="bg-white p-1.5 rounded shadow-sm">
+                    <span className="text-[#007AFF]">{idx + 1}.</span> {word}
                   </div>
                 ))}
               </div>
@@ -207,16 +207,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
       </div>
 
       {/* Export & Destructive Actions */}
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <h3 className="font-serif font-bold text-lg text-[#1E3A5F] border-b border-[#E3DCCB] pb-2 flex items-center gap-2">
-          <Download className="text-[#1E3A5F]" size={20} />
+      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Download className="text-[var(--maru-text)]" size={20} />
           Exportar o Eliminar Datos
         </h3>
 
         <div className="flex flex-wrap gap-4">
           <button
             onClick={handleExportJSON}
-            className="px-5 py-2.5 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white text-xs font-medium rounded-xl flex items-center gap-2 shadow"
+            className="px-5 py-2.5 bg-[#F2F2F7] hover:bg-gray-200 text-[var(--maru-text)] text-xs font-medium rounded-xl flex items-center gap-2 shadow-sm"
           >
             <Download size={16} />
             <span>Exportar Todos mis Datos (JSON)</span>
@@ -224,7 +224,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
 
           <button
             onClick={() => setShowWipeModal(true)}
-            className="px-5 py-2.5 bg-[#C0392B] hover:bg-red-700 text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow"
+            className="px-5 py-2.5 bg-[#FF3B30] hover:bg-[#D32F2F] text-white text-xs font-bold rounded-xl flex items-center gap-2 shadow-sm"
           >
             <Trash2 size={16} />
             <span>Borrar Todo Mi Historial y Cuenta</span>
@@ -234,44 +234,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
 
       {/* BORRAR TODO Modal */}
       {showWipeModal && (
-        <div className="fixed inset-0 z-50 bg-[#C0392B]/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-5 text-[#2C3E50]">
+        <div className="fixed inset-0 z-50 bg-[#1C1C1E]/50 backdrop-blur-md flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 w-full max-w-md shadow-2xl space-y-5 text-[var(--maru-text)]">
             <div className="text-center space-y-2">
-              <div className="w-14 h-14 rounded-full bg-[#C0392B]/10 text-[#C0392B] flex items-center justify-center mx-auto">
+              <div className="w-14 h-14 rounded-full bg-[#FF3B30]/10 text-[#FF3B30] flex items-center justify-center mx-auto">
                 <AlertTriangle size={32} />
               </div>
-              <h2 className="text-xl font-serif font-bold text-[#C0392B]">
+              <h2 className="text-xl font-display font-bold text-[#FF3B30]">
                 ⚠️ ELIMINAR CUENTA Y DATOS PERMANENTEMENTE
               </h2>
-              <p className="text-xs text-[#6B7F8C]">
+              <p className="text-xs text-[var(--maru-text-muted)]">
                 Esta acción eliminará para siempre tu usuario, historial, hábitos, perfil médico y nodos de memoria RAG en este dispositivo.
               </p>
             </div>
 
             <div className="space-y-2">
-              <label className="block text-xs font-mono uppercase text-[#2C3E50]">
-                Escribe <strong className="text-[#C0392B]">BORRAR TODO</strong> para confirmar:
+              <label className="block text-xs font-mono uppercase text-[var(--maru-text)]">
+                Escribe <strong className="text-[#FF3B30]">BORRAR TODO</strong> para confirmar:
               </label>
               <input
                 type="text"
                 value={wipeConfirmText}
                 onChange={(e) => setWipeConfirmText(e.target.value)}
                 placeholder="BORRAR TODO"
-                className="w-full px-4 py-2.5 border border-[#C0392B] rounded-xl text-sm font-bold text-[#C0392B] focus:outline-none"
+                className="w-full px-4 py-2.5 border border-[#FF3B30] bg-[#FF3B30]/5 rounded-xl text-sm font-bold text-[#FF3B30] focus:outline-none"
               />
             </div>
 
             <div className="flex gap-3 pt-2">
               <button
                 onClick={() => setShowWipeModal(false)}
-                className="flex-1 py-2.5 border border-[#E3DCCB] rounded-xl text-xs font-medium"
+                className="flex-1 py-2.5 bg-[#F2F2F7] hover:bg-gray-200 text-[var(--maru-text)] rounded-xl text-xs font-medium transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleConfirmWipe}
                 disabled={wipeConfirmText !== 'BORRAR TODO'}
-                className="flex-1 py-2.5 bg-[#C0392B] hover:bg-red-700 disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow"
+                className="flex-1 py-2.5 bg-[#FF3B30] hover:bg-[#D32F2F] disabled:opacity-40 text-white rounded-xl text-xs font-bold shadow-sm transition-colors"
               >
                 BORRAR TODO PARA SIEMPRE
               </button>

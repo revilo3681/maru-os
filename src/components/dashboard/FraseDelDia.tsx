@@ -29,27 +29,34 @@ export const FraseDelDia: React.FC = () => {
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#1E3A5F] to-[#2C3E50] text-[#F5F1E8] p-5 rounded-2xl shadow-md border border-[#4A9B9D]/30 relative overflow-hidden">
-      <Quote className="absolute -right-2 -bottom-2 text-[#4A9B9D]/10" size={120} />
-      
+    <div className="relative overflow-hidden rounded-xl border border-[var(--maru-border)] bg-gradient-to-br from-[var(--maru-surface)] via-[var(--maru-bg)] to-[var(--maru-void)] p-5 text-[var(--maru-text)]">
+      <div
+        className="absolute inset-0 pointer-events-none opacity-40"
+        style={{
+          background:
+            'radial-gradient(ellipse 50% 80% at 90% 20%, rgba(212,175,55,0.2), transparent 55%)'
+        }}
+      />
+      <Quote className="absolute -right-2 -bottom-2 text-[var(--maru-gold)]/10" size={120} />
+
       <div className="relative z-10 space-y-3">
-        <div className="flex items-center justify-between text-xs font-mono uppercase tracking-wider text-[#4A9B9D]">
-          <span>📜 Frase del Día</span>
+        <div className="flex items-center justify-between text-xs font-mono uppercase tracking-wider text-[var(--maru-gold)]">
+          <span>Frase del Día</span>
           <span>MARU OS</span>
         </div>
 
         <p className="text-lg sm:text-xl font-serif italic text-white leading-relaxed">
-          "{currentFrase.text}"
+          &ldquo;{currentFrase.text}&rdquo;
         </p>
 
         <div className="flex items-center justify-between pt-1">
-          <span className="text-xs font-mono text-[#B8924A]">— {currentFrase.author}</span>
+          <span className="text-xs font-mono text-[var(--maru-gold-soft)]">— {currentFrase.author}</span>
 
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsSaved(!isSaved)}
               className={`p-2 rounded-lg transition-colors ${
-                isSaved ? 'text-red-400 bg-white/10' : 'text-[#F5F1E8]/70 hover:text-white hover:bg-white/10'
+                isSaved ? 'text-rose-400 bg-white/10' : 'text-white/60 hover:text-white hover:bg-white/10'
               }`}
               title="Guardar en favoritos"
             >
@@ -58,7 +65,7 @@ export const FraseDelDia: React.FC = () => {
 
             <button
               onClick={handleNext}
-              className="p-2 rounded-lg text-[#F5F1E8]/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
               title="Siguiente frase"
             >
               <RefreshCw size={16} />
@@ -66,12 +73,12 @@ export const FraseDelDia: React.FC = () => {
 
             <button
               onClick={handleShare}
-              className="p-2 rounded-lg text-[#F5F1E8]/70 hover:text-white hover:bg-white/10 transition-colors"
+              className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors"
               title="Compartir frase"
             >
               <Share2 size={16} />
             </button>
-            {copied && <span className="text-[10px] text-[#4A9B9D] font-mono">Copiado</span>}
+            {copied && <span className="text-[10px] text-[var(--maru-gold)] font-mono">Copiado</span>}
           </div>
         </div>
       </div>

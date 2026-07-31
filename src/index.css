@@ -1,57 +1,172 @@
 @import "tailwindcss";
 
+:root {
+  /* Apple/Google Clean Theme */
+  --maru-void: #000000;
+  --maru-bg: #F2F2F7; /* Apple system background */
+  --maru-bg-elevated: #FFFFFF;
+  --maru-surface: #FFFFFF;
+  --maru-surface-2: #F9FAFB;
+  --maru-border: rgba(0, 0, 0, 0.1);
+  --maru-border-soft: rgba(0, 0, 0, 0.05);
+
+  /* Apple Blue Accent */
+  --maru-gold: #007AFF; 
+  --maru-gold-soft: #5AC8FA;
+  --maru-gold-deep: #0056B3;
+  --maru-amber: #FF9500;
+
+  /* Text */
+  --maru-text: #1C1C1E;
+  --maru-text-muted: #8E8E93;
+  --maru-text-dim: #C7C7CC;
+
+  /* Readable in-app reading surface (chat / long form) */
+  --maru-read-bg: #F2F2F7;
+  --maru-read-ink: #1C1C1E;
+  --maru-read-muted: #8E8E93;
+  --maru-read-card: #FFFFFF;
+  --maru-read-line: #E5E5EA;
+
+  /* Legacy bridges used by remaining views */
+  --maru-navy: #1C1C1E;
+  --maru-teal: #007AFF;
+}
+
 @layer utilities {
+  .font-display {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
   .font-serif {
-    font-family: 'Cormorant Garamond', Georgia, serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+  .font-script {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
   .font-sans {
-    font-family: 'Inter', system-ui, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
   }
   .font-mono {
-    font-family: 'JetBrains Mono', monospace;
+    font-family: 'SF Mono', 'Roboto Mono', 'JetBrains Mono', monospace;
+  }
+
+  .maru-gold-text {
+    color: var(--maru-gold);
+  }
+
+  .maru-gradient-void {
+    background: linear-gradient(180deg, #FFFFFF 0%, #F9FAFB 100%);
+  }
+
+  .maru-glass {
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(24px);
+    border: 1px solid var(--maru-border-soft);
+  }
+
+  .maru-btn-gold {
+    background: #007AFF;
+    color: #FFFFFF;
+    font-weight: 600;
+    transition: transform 0.2s ease, opacity 0.2s ease, box-shadow 0.2s ease;
+    box-shadow: 0 4px 14px rgba(0, 122, 255, 0.2);
+    border-radius: 9999px;
+  }
+  .maru-btn-gold:hover {
+    transform: translateY(-1px);
+    opacity: 0.9;
+    box-shadow: 0 6px 20px rgba(0, 122, 255, 0.3);
+  }
+
+  .maru-btn-ghost {
+    border: 1px solid rgba(0, 122, 255, 0.5);
+    color: #007AFF;
+    background: transparent;
+    transition: background 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+    border-radius: 9999px;
+  }
+  .maru-btn-ghost:hover {
+    background: rgba(0, 122, 255, 0.05);
+    border-color: #007AFF;
   }
 }
 
-/* Custom scrollbar styling for MARU OS */
+/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
 }
 ::-webkit-scrollbar-track {
-  background: #F5F1E8;
+  background: var(--maru-bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: #E3DCCB;
+  background: rgba(212, 175, 55, 0.28);
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #4A9B9D;
+  background: rgba(212, 175, 55, 0.5);
+}
+
+/* App reading surfaces keep a warmer scrollbar */
+.maru-read-scroll::-webkit-scrollbar-track {
+  background: var(--maru-read-bg);
+}
+.maru-read-scroll::-webkit-scrollbar-thumb {
+  background: #D4C9B0;
+}
+.maru-read-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--maru-gold-soft);
 }
 
 @keyframes maru-heartbeat {
   0%, 100% {
     transform: scale(1);
-    box-shadow: 0 0 35px rgba(74, 155, 157, 0.35);
+    box-shadow: 0 0 28px rgba(212, 175, 55, 0.28);
   }
   50% {
-    transform: scale(1.04);
-    box-shadow: 0 0 60px rgba(74, 155, 157, 0.65);
+    transform: scale(1.03);
+    box-shadow: 0 0 48px rgba(212, 175, 55, 0.5);
   }
 }
 
 @keyframes water-wave-ripple {
   0% {
     transform: scale(0.92);
-    opacity: 0.9;
-    border-color: rgba(74, 155, 157, 0.85);
+    opacity: 0.85;
   }
   50% {
-    opacity: 0.4;
+    opacity: 0.35;
   }
   100% {
     transform: scale(1.7);
     opacity: 0;
-    border-color: rgba(74, 155, 157, 0);
+  }
+}
+
+@keyframes maru-spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes maru-fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes maru-halo-pulse {
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.04);
   }
 }
 
@@ -71,21 +186,37 @@
   animation: water-wave-ripple 3.6s cubic-bezier(0.1, 0.8, 0.3, 1) infinite 2.4s;
 }
 
+.animate-maru-spin-slow {
+  animation: maru-spin-slow 28s linear infinite;
+}
+
+.animate-maru-fade-up {
+  animation: maru-fade-up 0.9s ease-out both;
+}
+
+.animate-maru-fade-up-delay {
+  animation: maru-fade-up 1s ease-out 0.15s both;
+}
+
+.animate-maru-fade-up-delay-2 {
+  animation: maru-fade-up 1s ease-out 0.3s both;
+}
+
+.animate-maru-halo {
+  animation: maru-halo-pulse 4s ease-in-out infinite;
+}
+
 @keyframes fall-leaf {
   0% {
     transform: translateY(-10vh) rotate(0deg) translateX(0);
     opacity: 0;
   }
-  10% {
-    opacity: 0.8;
-  }
+  10% { opacity: 0.8; }
   50% {
     transform: translateY(45vh) rotate(180deg) translateX(20px);
     opacity: 1;
   }
-  90% {
-    opacity: 0.8;
-  }
+  90% { opacity: 0.8; }
   100% {
     transform: translateY(110vh) rotate(360deg) translateX(-20px);
     opacity: 0;
@@ -101,12 +232,8 @@
     transform: translateY(-100%) scaleY(1);
     opacity: 0;
   }
-  20% {
-    opacity: 0.7;
-  }
-  80% {
-    opacity: 0.3;
-  }
+  20% { opacity: 0.7; }
+  80% { opacity: 0.3; }
   100% {
     transform: translateY(100%) scaleY(1.5);
     opacity: 0;

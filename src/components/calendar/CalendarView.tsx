@@ -29,33 +29,33 @@ export const CalendarView: React.FC = () => {
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[#F5F1E8] text-[#2C3E50]">
+    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[var(--maru-bg)] text-[var(--maru-text)]">
       <div className="space-y-1">
-        <div className="text-xs font-mono uppercase tracking-wider text-[#4A9B9D]">Organización Personal</div>
-        <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3A5F]">
+        <div className="text-xs font-mono uppercase tracking-wider text-[var(--maru-text-muted)]">Organización Personal</div>
+        <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)]">
           Calendario & Recordatorios
         </h1>
-        <p className="text-xs text-[#6B7F8C]">
+        <p className="text-xs text-[var(--maru-text-muted)]">
           Sincronización local de citas médicas, rutinas y tomas de medicamentos.
         </p>
       </div>
 
-      <div className="bg-white border border-[#E3DCCB] p-6 rounded-2xl shadow-sm space-y-4">
-        <div className="flex items-center justify-between border-b border-[#E3DCCB] pb-3">
-          <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F]">
-            <CalendarIcon className="text-[#4A9B9D]" size={18} />
+      <div className="bg-white border border-[var(--maru-border-soft)] p-6 rounded-2xl shadow-sm space-y-4">
+        <div className="flex items-center justify-between border-b border-[var(--maru-border-soft)] pb-3">
+          <div className="flex items-center gap-2 text-sm font-display font-semibold text-[var(--maru-text)]">
+            <CalendarIcon className="text-[#007AFF]" size={18} />
             <span>Eventos de Hoy ({todayStr})</span>
           </div>
         </div>
 
         <div className="space-y-3">
           {events.map((ev) => (
-            <div key={ev.id} className="p-3.5 bg-[#F5F1E8] border border-[#E3DCCB] rounded-xl flex items-center justify-between text-xs">
+            <div key={ev.id} className="p-3.5 bg-[#F2F2F7] border border-transparent rounded-xl flex items-center justify-between text-xs">
               <div className="flex items-center gap-3">
-                <span className="font-mono bg-[#1E3A5F] text-white px-2 py-1 rounded font-bold">{ev.time}</span>
-                <span className="font-medium text-[#2C3E50]">{ev.title}</span>
+                <span className="font-mono bg-white text-[var(--maru-text)] border border-[var(--maru-border-soft)] px-2 py-1 rounded-md font-bold">{ev.time}</span>
+                <span className="font-medium text-[var(--maru-text)]">{ev.title}</span>
               </div>
-              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded bg-[#4A9B9D]/10 text-[#4A9B9D] font-bold">
+              <span className="text-[10px] uppercase font-mono px-2 py-0.5 rounded-md bg-[#007AFF]/10 text-[#007AFF] font-bold">
                 {ev.type}
               </span>
             </div>
@@ -63,23 +63,23 @@ export const CalendarView: React.FC = () => {
         </div>
 
         {/* Add Event Form */}
-        <form onSubmit={handleAddEvent} className="pt-2 flex gap-3 border-t border-[#E3DCCB]">
+        <form onSubmit={handleAddEvent} className="pt-2 flex gap-3 border-t border-[var(--maru-border-soft)]">
           <input
             type="time"
             value={eventTime}
             onChange={(e) => setEventTime(e.target.value)}
-            className="px-3 py-2 bg-[#F5F1E8]/50 border border-[#E3DCCB] rounded-xl text-xs font-mono"
+            className="px-3 py-2 bg-[#F2F2F7] border border-transparent focus:border-[#007AFF] rounded-xl text-xs font-mono outline-none"
           />
           <input
             type="text"
             value={eventTitle}
             onChange={(e) => setEventTitle(e.target.value)}
             placeholder="Nuevo evento o recordatorio..."
-            className="flex-1 px-4 py-2 bg-[#F5F1E8]/50 border border-[#E3DCCB] rounded-xl text-xs"
+            className="flex-1 px-4 py-2 bg-[#F2F2F7] border border-transparent focus:border-[#007AFF] rounded-xl text-xs outline-none"
           />
           <button
             type="submit"
-            className="px-4 py-2 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white text-xs font-medium rounded-xl flex items-center gap-1 shadow"
+            className="px-4 py-2 bg-[#007AFF] hover:bg-[#0056B3] text-white text-xs font-medium rounded-xl flex items-center gap-1 shadow-sm transition-colors"
           >
             <Plus size={16} />
             <span>Agregar</span>

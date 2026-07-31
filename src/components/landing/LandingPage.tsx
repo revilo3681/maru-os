@@ -1,163 +1,454 @@
 import React, { useState } from 'react';
-import { Enso3DCanvas } from '../canvas/Enso3DCanvas';
-import { AmaruBackground } from '../canvas/AmaruBackground';
-import { PeruRegionsCanvas } from '../canvas/PeruRegionsCanvas';
-import { Sparkles, ArrowRight, UserCheck, Mountain, TreePine, Waves } from 'lucide-react';
+import { motion } from 'motion/react';
+import {
+  Sparkles,
+  Box,
+  Droplets,
+  Circle,
+  Brain,
+  Shield,
+  WifiOff,
+  Users,
+  Layers
+} from 'lucide-react';
+import { MaruRoulette3D } from '../canvas/MaruRoulette3D';
+import { AGENTS_CATALOG } from '../../data/agentsData';
+import { AgentId } from '../../types';
 
 interface LandingPageProps {
   onStartOnboarding: () => void;
   onOpenLogin: () => void;
 }
 
+const NAV_LINKS = [
+  { id: 'inicio', label: 'Inicio' },
+  { id: 'caracteristicas', label: 'Características' },
+  { id: 'agentes', label: 'Agentes' },
+  { id: 'arquitectura', label: 'Arquitectura' },
+  { id: 'sobre', label: 'Sobre MARU OS' }
+] as const;
+
+const MEANINGS = [
+  {
+    region: 'Andes · PE',
+    lang: 'Quechua',
+    title: 'Manantial · Ojo de agua',
+    body: 'MARU es el manantial: origen, cuidado y flujo. La inteligencia nace cerca de ti, en tu propio entorno.'
+  },
+  {
+    region: 'Zen · JP',
+    lang: 'Japonés',
+    title: '丸 Maru · Círculo / Enso',
+    body: 'El círculo abierto: totalidad incompleta a propósito. Completitud sin cierre — el logo vive como enso andino.'
+  },
+  {
+    region: 'Acronym · EN',
+    lang: 'Inglés',
+    title: 'M.A.R.U.',
+    body: 'Memory · Agents · Reasoning · Universal. Un sistema operativo cognitivo, no un chatbot.'
+  }
+];
+
+const FEATURES = [
+  {
+    icon: Shield,
+    title: 'Soberanía total',
+    body: 'Conversaciones, documentos y memoria viven en tu hardware. Sin servidores centrales que te rastreen.'
+  },
+  {
+    icon: WifiOff,
+    title: 'Offline-first',
+    body: 'Diseñado para funcionar con modelos locales. La nube es opcional; tu autonomía no lo es.'
+  },
+  {
+    icon: Users,
+    title: 'Multi-agente con alma',
+    body: 'Un equipo simbiótico — salud, código, clima, emergencias, bienestar — que razona contigo.'
+  },
+  {
+    icon: Layers,
+    title: 'Capa cognitiva OS',
+    body: 'No es una app aislada: es el estrato que une memoria, agentes y razonamiento en tu día a día.'
+  }
+];
+
 export const LandingPage: React.FC<LandingPageProps> = ({
   onStartOnboarding,
   onOpenLogin
 }) => {
-  const [region, setRegion] = useState<'costa' | 'sierra' | 'selva'>('costa');
+  const [activeNav, setActiveNav] = useState<string>('inicio');
+  const [focusedAgent, setFocusedAgent] = useState<AgentId | null>(null);
+
+  const scrollTo = (id: string) => {
+    setActiveNav(id);
+    const el = document.getElementById(id);
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const focused = AGENTS_CATALOG.find((a) => a.id === focusedAgent);
 
   return (
-    <div className="relative min-h-screen bg-[#F5F1E8] text-[#2C3E50] overflow-hidden flex flex-col justify-between select-none transition-colors duration-1000" style={{
-      backgroundColor: region === 'costa' ? '#F5F1E8' : region === 'sierra' ? '#1E293B' : '#1A3326',
-      color: region === 'costa' ? '#2C3E50' : '#F5F1E8'
-    }}>
-      {/* 3D Peru Regions Canvas */}
-      <PeruRegionsCanvas region={region} />
-      
-      {/* Fallback floating Canvas Particles (Amaru theme) */}
-      <div className="opacity-40">
-        <AmaruBackground />
-      </div>
-
-      {/* Top Header */}
-      <header className="relative z-10 max-w-7xl mx-auto w-full px-6 py-6 flex items-center justify-between border-b border-[#E3DCCB]/60">
-        <div className="flex items-center gap-3">
-          <div className="relative flex items-center justify-center">
-            {/* Clock-like outer ring that ripples */}
-            <div className="absolute inset-0 rounded-full border-2 border-[#4A9B9D]/30 animate-water-wave-1"></div>
-            <div className="absolute inset-0 rounded-full border-2 border-[#B8924A]/20 animate-water-wave-2"></div>
-            <img 
-              src="/logo.jpg" 
-              alt="MARU OS Logo" 
-              className="w-12 h-12 rounded-full object-cover border-2 border-[#4A9B9D] shadow-md shrink-0 relative z-10 animate-maru-heartbeat" 
-            />
-          </div>
-
-          <div>
-            <span className={`font-serif font-bold text-2xl ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>MARU OS</span>
-            <span className={`text-xs italic font-serif ml-2 ${region === 'costa' ? 'text-[#4A9B9D]' : 'text-[#A3E4D7]'}`}>con alma.</span>
-          </div>
+    <div className="relative min-h-screen bg-[var(--maru-bg)] text-[var(--maru-text)] font-sans overflow-x-hidden">
+      {/* ── HERO ── */}
+      <section id="inicio" className="relative min-h-screen flex flex-col">
+        {/* Full-bleed cinematic plane */}
+        <div className="absolute inset-0 overflow-hidden">
+          <video
+            src="/fondo-video.mp4"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="absolute inset-0 w-full h-full object-cover object-center scale-105"
+          />
+          {/* Subtle dark vignette for text contrast — video stays visible */}
+          <div
+            className="absolute inset-0 pointer-events-none"
+            style={{
+              background:
+                'linear-gradient(180deg, rgba(0,0,0,0.42) 0%, rgba(0,0,0,0.12) 38%, rgba(0,0,0,0.18) 62%, rgba(0,0,0,0.55) 100%)'
+            }}
+          />
         </div>
 
-        <div className="flex items-center gap-4 text-xs font-mono">
-          <span className={`hidden sm:inline ${region === 'costa' ? 'text-[#6B7F8C]' : 'text-white/60'}`}>OJO DE AGUA · MEMORY · REASONING</span>
+        {/* Nav */}
+        <header className="relative z-20 w-full px-4 sm:px-8 py-5 flex items-center justify-between gap-4">
           <button
-            onClick={onOpenLogin}
-            className={`px-4 py-2 border rounded-xl transition-all shadow-sm font-semibold flex items-center gap-1.5 ${
-              region === 'costa' 
-                ? 'border-[#1E3A5F] text-[#1E3A5F] hover:bg-[#1E3A5F] hover:text-white'
-                : 'border-white text-white hover:bg-white hover:text-[#1E3A5F]'
-            }`}
+            type="button"
+            onClick={() => scrollTo('inicio')}
+            className="flex items-center gap-3 shrink-0 group"
           >
-            <UserCheck size={14} />
-            <span>ENTRAR</span>
+            <div className="relative w-10 h-10">
+              <img
+                src="/logo.jpg"
+                alt="MARU OS"
+                className="w-10 h-10 rounded-full object-cover border border-white/40 shadow-[0_0_20px_rgba(0,122,255,0.35)] animate-maru-spin-slow"
+              />
+            </div>
+            <span className="font-display font-bold text-lg tracking-[0.12em] text-white">
+              MARU OS
+            </span>
           </button>
-        </div>
-      </header>
 
-      {/* Hero Body */}
-      <main className="relative z-10 max-w-7xl mx-auto w-full px-6 py-12 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center flex-1">
-        <div className="space-y-6 text-left">
-          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-mono border ${
-            region === 'costa' ? 'bg-[#1E3A5F]/10 text-[#1E3A5F] border-[#1E3A5F]/20' : 'bg-white/10 text-white border-white/20'
-          }`}>
-            <Sparkles size={14} className={region === 'costa' ? 'text-[#B8924A]' : 'text-[#A3E4D7]'} />
-            <span>SISTEMA OPERATIVO COGNITIVO PARA PERÚ</span>
-          </div>
+          <nav className="hidden lg:flex items-center gap-7 text-sm font-display tracking-wide text-white/70">
+            {NAV_LINKS.map((link) => (
+              <button
+                key={link.id}
+                type="button"
+                onClick={() => scrollTo(link.id)}
+                className={`relative pb-1 transition-colors hover:text-white ${
+                  activeNav === link.id ? 'text-[#5AC8FA]' : ''
+                }`}
+              >
+                {link.label}
+                {activeNav === link.id && (
+                  <span className="absolute left-0 right-0 -bottom-0.5 h-px bg-[#5AC8FA] shadow-[0_0_8px_rgba(90,200,250,0.8)]" />
+                )}
+              </button>
+            ))}
+          </nav>
 
-          <h1 className={`text-4xl sm:text-6xl font-serif font-bold leading-tight ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>
-            El primer <br />
-            sistema operativo <br />
-            cognitivo <span className={`italic font-normal ${region === 'costa' ? 'text-[#4A9B9D]' : 'text-[#A3E4D7]'}`}>con alma.</span>
-          </h1>
+          <button
+            type="button"
+            onClick={onStartOnboarding}
+            className="maru-btn-ghost px-4 py-2 rounded-lg text-sm font-display font-semibold tracking-wide border-white/50 text-white hover:bg-white/10 hover:border-white"
+          >
+            Comenzar
+          </button>
+        </header>
 
-          <p className={`text-base sm:text-lg max-w-lg leading-relaxed ${region === 'costa' ? 'text-[#6B7F8C]' : 'text-white/80'}`}>
-            Un compañero vivo que habita en tu dispositivo. Te conoce, reacciona al clima y huaicos de Chosica, cuida tu salud y razona contigo sin invadir tu privacidad.
-          </p>
+        {/* Hero composition: brand + copy + CTAs + roulette */}
+        <div className="relative z-10 flex-1 flex flex-col items-center justify-center px-4 pb-36 pt-4">
+          {/* Interactive Enso roulette — brand-level hero visual */}
+          <motion.div
+            initial={{ opacity: 0, scale: 0.92 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ duration: 1.1, ease: [0.22, 1, 0.36, 1] }}
+            className="relative mb-2 sm:mb-0"
+          >
+            <MaruRoulette3D
+              size={440}
+              className="w-[min(440px,85vw)] h-auto"
+              selectedAgentId={focusedAgent}
+              onSelectAgent={(id) => setFocusedAgent(id)}
+              autoSpin
+              showLabels
+            />
+          </motion.div>
 
-          <div className="flex flex-wrap items-center gap-4 pt-2">
-            <button
-              onClick={onStartOnboarding}
-              className="px-8 py-4 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-2xl font-serif text-lg font-bold shadow-xl hover:shadow-2xl transition-all transform hover:-translate-y-0.5 flex items-center gap-3"
-            >
-              <span>COMENZAR ONBOARDING</span>
-              <ArrowRight size={20} className="text-[#4A9B9D]" />
-            </button>
+          <motion.div
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.9, delay: 0.25, ease: [0.22, 1, 0.36, 1] }}
+            className="text-center max-w-2xl -mt-2 sm:-mt-4"
+          >
+            <h1 className="font-display font-extrabold text-4xl sm:text-5xl md:text-6xl tracking-tight text-white leading-none drop-shadow-[0_2px_12px_rgba(0,0,0,0.45)]">
+              Inteligencia Artificial{' '}
+              <span className="font-script font-normal text-[#5AC8FA] text-5xl sm:text-6xl md:text-7xl block sm:inline sm:ml-1">
+                para Todos
+              </span>
+            </h1>
+            <p className="mt-4 text-sm sm:text-base text-white/80 max-w-xl mx-auto leading-relaxed font-sans drop-shadow-[0_1px_8px_rgba(0,0,0,0.4)]">
+              Privada, offline y diseñada para unir personas, ideas y conocimiento sin importar dónde vivas.
+            </p>
 
-            <button
-              onClick={onOpenLogin}
-              className={`px-6 py-4 border rounded-2xl font-medium text-sm transition-colors ${
-                region === 'costa'
-                  ? 'border-[#E3DCCB] hover:bg-white text-[#2C3E50]'
-                  : 'border-white/40 hover:bg-white/10 text-white'
-              }`}
-            >
-              Ver Dashboard Vivo →
-            </button>
-          </div>
-
-          {/* Region Selector */}
-          <div className="flex gap-2 pt-6">
-            <button onClick={() => setRegion('costa')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'costa' ? 'bg-[#4A9B9D] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
-              <Waves size={16} /> COSTA
-            </button>
-            <button onClick={() => setRegion('sierra')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'sierra' ? 'bg-[#B8924A] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
-              <Mountain size={16} /> SIERRA
-            </button>
-            <button onClick={() => setRegion('selva')} className={`px-4 py-2 flex items-center gap-2 rounded-xl text-xs font-bold transition-all ${region === 'selva' ? 'bg-[#5A8F6B] text-white shadow-lg scale-105' : 'bg-[#E3DCCB]/20 text-current hover:bg-[#E3DCCB]/40'}`}>
-              <TreePine size={16} /> SELVA
-            </button>
-          </div>
-
-          <div className={`grid grid-cols-3 gap-4 pt-6 border-t text-xs font-mono ${region === 'costa' ? 'border-[#E3DCCB]/60 text-[#6B7F8C]' : 'border-white/20 text-white/60'}`}>
-            <div>
-              <div className={`font-bold text-sm ${region === 'costa' ? 'text-[#1E3A5F]' : 'text-white'}`}>7 AGENTES</div>
-              <div>Salud, Leyes, Código, Clima</div>
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-3">
+              <button
+                type="button"
+                onClick={onStartOnboarding}
+                className="maru-btn-gold inline-flex items-center gap-2 px-7 py-3.5 rounded-xl text-sm font-display tracking-wide"
+              >
+                <Sparkles size={16} />
+                Comenzar
+              </button>
+              <button
+                type="button"
+                onClick={() => scrollTo('arquitectura')}
+                className="inline-flex items-center gap-2 px-6 py-3.5 rounded-xl text-sm font-display tracking-wide border border-white/45 text-white bg-black/20 hover:bg-white/10 transition-colors"
+              >
+                <Box size={16} />
+                Ver Arquitectura
+              </button>
+              <button
+                type="button"
+                onClick={onOpenLogin}
+                className="text-sm text-white/65 hover:text-white underline-offset-4 hover:underline px-2 py-2 font-display"
+              >
+                Ya tengo cuenta
+              </button>
             </div>
-            <div>
-              <div className="font-bold text-[#1E3A5F] text-sm">100% LOCAL</div>
-              <div>Privacidad Radical</div>
-            </div>
-            <div>
-              <div className="font-bold text-[#1E3A5F] text-sm">DATOS PERÚ</div>
-              <div>SENAMHI & MINSA</div>
-            </div>
-          </div>
+
+            {focused && (
+              <motion.p
+                key={focused.id}
+                initial={{ opacity: 0, y: 6 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 text-xs font-mono text-[#5AC8FA]"
+              >
+                {focused.name} · {focused.specialty}
+              </motion.p>
+            )}
+          </motion.div>
         </div>
 
-        {/* 3D Enso Hero Canvas */}
-        <div className="flex flex-col items-center justify-center relative">
-          <div className="relative">
-            <Enso3DCanvas size={320} interactive={true} accentColor="#4A9B9D" />
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <span className="font-serif text-2xl font-bold text-[#1E3A5F]/80 tracking-widest">MARU</span>
+        {/* Agent strip — bottom of first viewport */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.45 }}
+          className="absolute bottom-0 inset-x-0 z-20 bg-black/45 backdrop-blur-md border-t border-white/10"
+        >
+          <div className="max-w-6xl mx-auto px-3 sm:px-6 py-3 flex gap-2 sm:gap-3 overflow-x-auto">
+            {AGENTS_CATALOG.map((agent) => {
+              const active = focusedAgent === agent.id;
+              return (
+                <button
+                  key={agent.id}
+                  type="button"
+                  onClick={() => setFocusedAgent(agent.id)}
+                  className={`shrink-0 flex items-center gap-2.5 px-3 py-2 rounded-lg transition-all ${
+                    active
+                      ? 'bg-[#007AFF]/25 border border-[#5AC8FA]/50'
+                      : 'border border-transparent hover:bg-white/10'
+                  }`}
+                >
+                  <span
+                    className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-display font-bold text-[#0B0D17]"
+                    style={{ backgroundColor: agent.colorAccent }}
+                  >
+                    {agent.name[0]}
+                  </span>
+                  <span className="text-left">
+                    <span className="block text-xs font-display font-semibold text-white leading-tight">
+                      {agent.name}
+                    </span>
+                    <span className="block text-[10px] text-white/55 max-w-[9rem] truncate">
+                      {agent.specialty}
+                    </span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </motion.div>
+      </section>
+
+      {/* ── CARACTERÍSTICAS ── */}
+      <section id="caracteristicas" className="relative py-24 px-4 sm:px-8 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="max-w-xl mb-14">
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
+              Características
+            </p>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-[var(--maru-text)] tracking-tight">
+              Un sistema operativo cognitivo con alma
+            </h2>
+            <p className="mt-3 text-[var(--maru-text-muted)] text-sm sm:text-base leading-relaxed">
+              MARU OS no envuelve un modelo: habita tu máquina como capa de memoria, agentes y razonamiento.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 gap-8 sm:gap-10">
+            {FEATURES.map((f) => {
+              const Icon = f.icon;
+              return (
+                <div key={f.title} className="space-y-3 border-l border-[var(--maru-border)] pl-5">
+                  <Icon size={22} className="text-[var(--maru-gold)]" />
+                  <h3 className="font-display font-semibold text-lg text-[var(--maru-text)]">{f.title}</h3>
+                  <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{f.body}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── AGENTES ── */}
+      <section id="agentes" className="relative py-24 px-4 sm:px-8 bg-[#F9FAFB]">
+        <div className="max-w-5xl mx-auto">
+          <div className="max-w-xl mb-12">
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
+              Ecosistema
+            </p>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-[var(--maru-text)] tracking-tight">
+              Siete agentes, una conciencia
+            </h2>
+            <p className="mt-3 text-[var(--maru-text-muted)] text-sm leading-relaxed">
+              Cada uno con voz, especialidad y modelo local. Colaboran cuando la pregunta cruza disciplinas.
+            </p>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-8 gap-y-10">
+            {AGENTS_CATALOG.map((agent) => (
+              <button
+                key={agent.id}
+                type="button"
+                onClick={() => {
+                  setFocusedAgent(agent.id);
+                  scrollTo('inicio');
+                }}
+                className="text-left group space-y-2"
+              >
+                <div className="flex items-center gap-3">
+                  <span
+                    className="w-10 h-10 rounded-full flex items-center justify-center text-sm font-display font-bold text-[#0B0D17] transition-transform group-hover:scale-105"
+                    style={{ backgroundColor: agent.colorAccent }}
+                  >
+                    {agent.name[0]}
+                  </span>
+                  <div>
+                    <div className="font-display font-semibold text-[var(--maru-text)] group-hover:text-[var(--maru-gold)] transition-colors">
+                      {agent.name}
+                    </div>
+                    <div className="text-[11px] font-mono text-[var(--maru-gold-soft)]">
+                      {agent.quechuaMeaning}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-xs text-[var(--maru-text-muted)] leading-relaxed pl-[3.25rem]">
+                  {agent.specialty}. {agent.catchphrase}
+                </p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── ARQUITECTURA ── */}
+      <section id="arquitectura" className="relative py-24 px-4 sm:px-8 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="max-w-xl mb-12">
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
+              Arquitectura
+            </p>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-[var(--maru-text)] tracking-tight">
+              Memory · Agents · Reasoning · Universal
+            </h2>
+            <p className="mt-3 text-[var(--maru-text-muted)] text-sm leading-relaxed">
+              Cuatro pilares que convierten MARU en un OS cognitivo, no en una ventana de chat.
+            </p>
+          </div>
+
+          <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {[
+              { letter: 'M', title: 'Memory', body: 'Memoria RAG local: tus notas, hábitos y contexto viven cifrados en el dispositivo.' },
+              { letter: 'A', title: 'Agents', body: 'Especialistas que se activan según la intención — salud, código, clima, emergencia.' },
+              { letter: 'R', title: 'Reasoning', body: 'Razonamiento multi-paso con modelos cuantizados en Ollama, sin ceder tu voz a la nube.' },
+              { letter: 'U', title: 'Universal', body: 'Una capa universal: el manantial une personas, ideas y conocimiento donde estés.' }
+            ].map((pillar) => (
+              <div key={pillar.letter} className="space-y-3 pt-1">
+                <div className="font-display text-4xl font-extrabold text-[var(--maru-gold)]/90">
+                  {pillar.letter}
+                </div>
+                <h3 className="font-display font-semibold text-[var(--maru-text)]">{pillar.title}</h3>
+                <p className="text-xs text-[var(--maru-text-muted)] leading-relaxed">{pillar.body}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── SOBRE MARU — triple meaning ── */}
+      <section id="sobre" className="relative py-24 px-4 sm:px-8 bg-white">
+        <div className="max-w-5xl mx-auto">
+          <div className="max-w-2xl mb-14">
+            <p className="text-xs font-mono uppercase tracking-[0.2em] text-[var(--maru-gold)] mb-3">
+              Sobre MARU OS
+            </p>
+            <h2 className="font-display font-bold text-3xl sm:text-4xl text-[var(--maru-text)] tracking-tight">
+              Tres raíces, un manantial
+            </h2>
+            <p className="mt-4 font-serif italic text-xl sm:text-2xl text-[var(--maru-gold)]">
+              El Manantial de Inteligencia Universal
+            </p>
+            <p className="mt-3 text-[var(--maru-text-muted)] text-sm leading-relaxed">
+              OS significa Operating System: una capa cognitiva con empatía — no un asistente genérico.
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-10">
+            {MEANINGS.map((m) => (
+              <div key={m.lang} className="space-y-3">
+                <div className="text-[11px] font-mono uppercase tracking-[0.16em] text-[var(--maru-text)]/45">
+                  {m.region} · {m.lang}
+                </div>
+                <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] flex items-center gap-2">
+                  {m.lang === 'Quechua' && <Droplets size={18} className="text-[var(--maru-gold)]" />}
+                  {m.lang === 'Japonés' && <Circle size={18} className="text-[var(--maru-gold)]" />}
+                  {m.lang === 'Inglés' && <Brain size={18} className="text-[var(--maru-gold)]" />}
+                  {m.title}
+                </h3>
+                <p className="text-sm text-[var(--maru-text-muted)] leading-relaxed">{m.body}</p>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-16 pt-10 border-t border-[var(--maru-border-soft)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+            <p className="font-serif italic text-lg text-[var(--maru-text)]/80 max-w-lg">
+              &ldquo;MARU no es un robot que obedece. MARU es un manantial que fluye contigo.&rdquo;
+            </p>
+            <div className="flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={onStartOnboarding}
+                className="maru-btn-gold px-6 py-3 rounded-xl text-sm font-display"
+              >
+                Entrar al manantial
+              </button>
+              <button
+                type="button"
+                onClick={onOpenLogin}
+                className="maru-btn-ghost px-6 py-3 rounded-xl text-sm font-display"
+              >
+                Iniciar sesión
+              </button>
             </div>
           </div>
-          <p className="text-xs font-mono text-[#B8924A] mt-4">
-            丸 · Manantial de pensamiento vivo
-          </p>
         </div>
-      </main>
+      </section>
 
-      {/* Manifesto Footer */}
-      <footer className="relative z-10 bg-[#1E3A5F] text-[#F5F1E8] py-8 border-t border-[#2C3E50]">
-        <div className="max-w-7xl mx-auto px-6 text-center space-y-3 text-xs sm:text-sm font-serif">
-          <p className="text-[#4A9B9D] font-bold text-base">"MARU no es un robot que obedece. MARU es un manantial que fluye contigo."</p>
-          <div className="flex flex-wrap justify-center gap-6 text-[#F5F1E8]/70 text-xs font-sans">
-            <span>• La tecnología debe ser cálida, no fría</span>
-            <span>• La privacidad es un derecho, no un lujo</span>
-            <span>• La inteligencia artificial debe tener alma</span>
-          </div>
-        </div>
+      <footer className="px-4 sm:px-8 py-8 border-t border-[var(--maru-border-soft)] text-center text-[11px] font-mono text-[var(--maru-text-dim)]">
+        MARU OS · Memory · Agents · Reasoning · Universal · con alma
       </footer>
     </div>
   );

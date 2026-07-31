@@ -19,7 +19,7 @@ export const Enso3DCanvas: React.FC<Enso3DCanvasProps> = ({
   _audioPulseLevel = 0,
   interactive = true,
   onClick,
-  accentColor = '#4A9B9D'
+  accentColor = '#D4AF37'
 }) => {
   return (
     <div
@@ -28,34 +28,31 @@ export const Enso3DCanvas: React.FC<Enso3DCanvasProps> = ({
       className={`relative flex items-center justify-center select-none ${
         interactive ? 'cursor-pointer group' : ''
       }`}
-      title="MARU OS — Manantial de pensamiento vivo"
+      title="MARU OS — Enso · Manantial de pensamiento vivo"
     >
-      {/* Radiating Water Wave Rings (Olas de agua latientes en el borde) */}
-      <div 
-        className="absolute inset-0 rounded-full border-2 animate-water-wave-1 pointer-events-none"
+      <div
+        className="absolute inset-0 rounded-full border animate-water-wave-1 pointer-events-none"
         style={{ borderColor: accentColor }}
       />
-      <div 
-        className="absolute inset-0 rounded-full border-2 animate-water-wave-2 pointer-events-none"
+      <div
+        className="absolute inset-0 rounded-full border animate-water-wave-2 pointer-events-none"
         style={{ borderColor: accentColor }}
       />
-      <div 
-        className="absolute inset-0 rounded-full border-2 animate-water-wave-3 pointer-events-none"
+      <div
+        className="absolute inset-0 rounded-full border animate-water-wave-3 pointer-events-none"
         style={{ borderColor: accentColor }}
       />
 
-      {/* Pulsing Beating Core with Enso Logo Image */}
-      <div 
-        className="relative w-4/5 h-4/5 rounded-full overflow-hidden border-2 shadow-2xl transition-transform duration-500 animate-maru-heartbeat group-hover:scale-105"
-        style={{ borderColor: accentColor }}
+      <div
+        className="relative w-4/5 h-4/5 rounded-full overflow-hidden border shadow-2xl transition-transform duration-500 animate-maru-heartbeat group-hover:scale-105"
+        style={{ borderColor: accentColor, boxShadow: `0 0 40px ${accentColor}44` }}
       >
         <img
           src="/logo.jpg"
           alt="MARU OS — Manantial Enso"
-          className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+          className="w-full h-full object-cover animate-maru-spin-slow transition-transform duration-700 group-hover:scale-105"
         />
-        {/* Subtle Inner Glow Overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/20 via-transparent to-white/10 pointer-events-none" />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-[rgba(212,175,55,0.12)] pointer-events-none" />
       </div>
     </div>
   );

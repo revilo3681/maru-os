@@ -11,9 +11,8 @@ import {
   Zap,
   Clock
 } from 'lucide-react';
-import { UserProfile, HealthProfile, LocationProfile, Habit } from '../../types';
+import { UserProfile, HealthProfile, LocationProfile, Habit, CalendarEvent } from '../../types';
 import { StorageService } from '../../services/storageService';
-import { ApiService } from '../../services/apiService';
 import { FraseDelDia } from './FraseDelDia';
 import { PomodoroTimer } from './PomodoroTimer';
 
@@ -48,12 +47,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     setHabits(updated);
   };
 
-  const [agenda, setAgenda] = useState<{calendar: any[], todoist: any[]}>({calendar: [], todoist: []});
-  React.useEffect(() => {
-    ApiService.getAgenda().then(data => {
-      if(data) setAgenda(data);
-    });
-  }, []);
+  const [events] = useState<CalendarEvent[]>(() => StorageService.getCalendarEvents());
 
   const handleQuickSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,145 +57,153 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   };
 
   return (
-    <div className="flex-1 overflow-y-auto p-4 sm:p-8 space-y-6 bg-[#F5F1E8] text-[#2C3E50]">
-      {/* Greeting & Header Bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-[#E3DCCB] shadow-sm">
+    <div className="relative flex-1 overflow-y-auto maru-read-scroll p-4 sm:p-8 space-y-6 bg-[var(--maru-bg)] text-[var(--maru-text)]">
+      {/* Atmospheric top wash */}
+      <div
+        className="pointer-events-none absolute inset-x-0 top-0 h-48 opacity-60"
+        style={{
+          background:
+            'radial-gradient(ellipse 70% 80% at 30% 0%, rgba(212,175,55,0.12), transparent 60%)'
+        }}
+      />
+
+      <div className="relative flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-[var(--maru-border-soft)] pb-6">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-serif font-bold text-[#1E3A5F]">
+          <p className="text-[11px] font-mono uppercase tracking-[0.18em] text-[var(--maru-text-muted)] mb-1">
+            Manantial vivo
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-display font-bold text-[var(--maru-text)] tracking-tight">
             {greeting}, {userProfile.name}.
           </h1>
-          <p className="text-xs text-[#6B7F8C] mt-1 font-mono">
-            {locationProfile.city}, {locationProfile.country} · 22°C Soleado · Fuente: SENAMHI
+          <p className="text-xs text-[var(--maru-text-muted)] mt-1.5 font-mono">
+            {locationProfile.city}, {locationProfile.country} · 22°C Soleado · SENAMHI
           </p>
         </div>
 
-        {/* Emergency Trigger Button */}
         <button
           onClick={onTriggerEmergency}
-          className="px-4 py-2.5 bg-[#C0392B]/10 hover:bg-[#C0392B] text-[#C0392B] hover:text-white border border-[#C0392B]/30 rounded-xl text-xs font-mono font-bold flex items-center gap-2 transition-colors self-start md:self-auto"
+          className="px-4 py-2.5 bg-[#C0392B]/15 hover:bg-[#C0392B] text-[#F5A9A0] hover:text-white border border-[#C0392B]/40 rounded-xl text-xs font-mono font-bold flex items-center gap-2 transition-colors self-start md:self-auto"
         >
           <AlertTriangle size={16} />
-          <span>🌊 ALERTA HUAICO / SISMO</span>
+          <span>ALERTA HUAICO / SISMO</span>
         </button>
       </div>
 
-      {/* 4 Metric Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-[#1E3A5F]/10 text-[#1E3A5F] rounded-xl">
-            <Users size={20} />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-[#1E3A5F]">5</div>
-            <div className="text-[11px] text-[#6B7F8C]">Agentes Activos</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-[#4A9B9D]/10 text-[#4A9B9D] rounded-xl">
-            <HardDrive size={20} />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-[#1E3A5F]">2.4 GB</div>
-            <div className="text-[11px] text-[#6B7F8C]">Memoria Usada</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-[#B8924A]/10 text-[#B8924A] rounded-xl">
-            <Zap size={20} />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-[#1E3A5F]">120 ms</div>
-            <div className="text-[11px] text-[#6B7F8C]">Latencia Local</div>
-          </div>
-        </div>
-
-        <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm flex items-center gap-3">
-          <div className="p-3 bg-[#5A8F6B]/10 text-[#5A8F6B] rounded-xl">
-            <Clock size={20} />
-          </div>
-          <div>
-            <div className="text-xl font-bold font-mono text-[#1E3A5F]">42 Días</div>
-            <div className="text-[11px] text-[#6B7F8C]">Con MARU OS</div>
-          </div>
-        </div>
+      <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-3">
+        {[
+          { icon: Users, label: 'Agentes Activos', value: '7', accent: 'var(--maru-gold)' },
+          { icon: HardDrive, label: 'Memoria Usada', value: '2.4 GB', accent: '#4A9B9D' },
+          { icon: Zap, label: 'Latencia Local', value: '120 ms', accent: 'var(--maru-amber)' },
+          { icon: Clock, label: 'Con MARU OS', value: '42 Días', accent: '#5A8F6B' }
+        ].map((m) => {
+          const Icon = m.icon;
+          return (
+            <div
+              key={m.label}
+              className="bg-white shadow-sm border border-[var(--maru-border-soft)] p-4 rounded-2xl flex items-center gap-3 transition-transform hover:-translate-y-0.5"
+            >
+              <div
+                className="p-2.5 rounded-xl"
+                style={{ backgroundColor: `${m.accent}15`, color: m.accent }}
+              >
+                <Icon size={18} />
+              </div>
+              <div>
+                <div className="text-lg font-bold font-mono text-[var(--maru-text)]">{m.value}</div>
+                <div className="text-[11px] text-[var(--maru-text-muted)]">{m.label}</div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Quote of the Day */}
       <FraseDelDia />
 
-      {/* Environment & Weather Alert Banner */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        
-        {/* Pacha Widget */}
-        <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm flex flex-col justify-between">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white border border-[var(--maru-border-soft)] p-5 rounded-2xl shadow-sm flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between text-xs font-mono uppercase text-[#1E3A5F] mb-4">
-              <span className="flex items-center gap-2">
-                <Wind size={16} className="text-[#4A9B9D]" />
+            <div className="flex items-center justify-between text-xs font-mono uppercase text-[var(--maru-text-muted)] mb-4">
+              <span className="flex items-center gap-2 text-[var(--maru-text)]">
+                <Wind size={16} className="text-[#5AC8FA]" />
                 Pacha: {locationProfile.city}
               </span>
-              <span className="text-[#5A8F6B]">Conectado</span>
+              <span className="text-[#34C759]">Conectado</span>
             </div>
-            <div className="space-y-3">
-              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
-                <span className="text-sm font-bold text-[#C0392B] flex items-center gap-1.5"><AlertTriangle size={14}/> Riesgo Huaico</span>
-                <span className="text-xs text-[#2C3E50]">85%</span>
+            <div className="space-y-2.5">
+              <div className="flex justify-between items-center bg-[#F2F2F7] p-2.5 rounded-xl">
+                <span className="text-sm font-medium text-[#FF3B30] flex items-center gap-1.5">
+                  <AlertTriangle size={14} /> Riesgo Huaico
+                </span>
+                <span className="text-xs text-[var(--maru-text)] font-mono">85%</span>
               </div>
-              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
-                <span className="text-sm font-bold text-[#5A8F6B] flex items-center gap-1.5"><Wind size={14}/> Calidad Aire</span>
-                <span className="text-xs text-[#2C3E50]">AQI: 45</span>
+              <div className="flex justify-between items-center bg-[#F2F2F7] p-2.5 rounded-xl">
+                <span className="text-sm font-medium text-[#34C759] flex items-center gap-1.5">
+                  <Wind size={14} /> Calidad Aire
+                </span>
+                <span className="text-xs text-[var(--maru-text)] font-mono">AQI: 45</span>
               </div>
-              <div className="flex justify-between items-center bg-[#F5F1E8]/50 p-2 rounded">
-                <span className="text-sm font-bold text-[#1E3A5F] flex items-center gap-1.5"><MapPin size={14}/> Zona Segura</span>
-                <span className="text-xs text-[#2C3E50]">A 500m</span>
+              <div className="flex justify-between items-center bg-[#F2F2F7] p-2.5 rounded-xl">
+                <span className="text-sm font-medium text-[var(--maru-gold)] flex items-center gap-1.5">
+                  <MapPin size={14} /> Zona Segura
+                </span>
+                <span className="text-xs text-[var(--maru-text)] font-mono">A 500m</span>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Agenda Widget */}
-        <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm">
-          <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F] mb-4 border-b border-[#E3DCCB] pb-2">
-            <Clock size={18} className="text-[#B8924A]" />
-            <span>Agenda del Día (Mock)</span>
+        <div className="bg-white border border-[var(--maru-border-soft)] p-5 rounded-2xl shadow-sm">
+          <div className="flex items-center justify-between border-b border-[var(--maru-border-soft)] pb-2 mb-4">
+            <div className="flex items-center gap-2 text-sm font-display font-semibold text-[var(--maru-text)]">
+              <Clock size={18} className="text-[#FF9500]" />
+              <span>Agenda del Día</span>
+            </div>
+            <span className="text-[10px] bg-[#FF9500]/10 text-[#FF9500] px-2 py-0.5 rounded-md font-mono font-bold">
+              REAL
+            </span>
           </div>
-          <div className="space-y-3 text-sm">
-            {(agenda?.calendar || []).map((cal: any) => (
-              <div key={cal.id} className="flex justify-between items-center bg-[#B8924A]/10 p-2 rounded">
-                <span className="font-bold text-[#2C3E50]">{cal.title}</span>
-                <span className="text-xs bg-white px-2 py-1 rounded text-[#B8924A] font-mono">{cal.time}</span>
+          <div className="space-y-2.5 text-sm">
+            {events.length === 0 ? (
+              <div className="text-xs text-[var(--maru-text-muted)] italic text-center py-2">
+                No hay eventos para hoy
               </div>
-            ))}
-            {(agenda?.todoist || []).map((tod: any) => (
-              <div key={tod.id} className="flex justify-between items-center border border-gray-200 p-2 rounded">
-                <span className="text-gray-600 flex items-center gap-2"><CheckSquare size={14}/> {tod.task}</span>
-                <span className={`text-[10px] px-2 py-0.5 rounded ${tod.priority === 'Alta' ? 'bg-red-100 text-red-600' : 'bg-orange-100 text-orange-600'}`}>{tod.priority}</span>
-              </div>
-            ))}
+            ) : (
+              events.map((ev) => (
+                <div
+                  key={ev.id}
+                  className="flex justify-between items-center bg-[#F2F2F7] p-2.5 rounded-xl"
+                >
+                  <span className="font-medium text-[var(--maru-text)] text-xs">{ev.title}</span>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] bg-white px-1.5 py-0.5 rounded-md text-[var(--maru-text-muted)] font-mono">
+                      {ev.type}
+                    </span>
+                    <span className="text-xs bg-white border border-[var(--maru-border-soft)] px-2 py-1 rounded-md text-[var(--maru-text)] font-mono font-bold">
+                      {ev.time}
+                    </span>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Habits & Pomodoro */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Habits Checklist Widget */}
-        <div className="bg-white border border-[#E3DCCB] p-5 rounded-2xl shadow-sm space-y-4">
-          <div className="flex items-center justify-between border-b border-[#E3DCCB] pb-3">
-            <div className="flex items-center gap-2 text-sm font-serif font-bold text-[#1E3A5F]">
-              <CheckSquare className="text-[#5A8F6B]" size={18} />
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+        <div className="bg-white border border-[var(--maru-border-soft)] p-5 rounded-2xl shadow-sm space-y-4">
+          <div className="flex items-center justify-between border-b border-[var(--maru-border-soft)] pb-3">
+            <div className="flex items-center gap-2 text-sm font-display font-semibold text-[var(--maru-text)]">
+              <CheckSquare className="text-[#34C759]" size={18} />
               <span>Hábitos y Rutinas de Hoy</span>
             </div>
-            <span className="text-xs font-mono text-[#6B7F8C]">
+            <span className="text-xs font-mono text-[var(--maru-text-muted)]">
               {completedHabitsCount}/{habits.length} ({progressPercent}%)
             </span>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-[#F5F1E8] h-2 rounded-full overflow-hidden">
+          <div className="w-full bg-[#F2F2F7] h-2 rounded-full overflow-hidden">
             <div
-              className="bg-[#5A8F6B] h-full transition-all duration-300"
+              className="bg-[#34C759] h-full transition-all duration-300 rounded-full"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
@@ -212,45 +214,51 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
                 key={h.id}
                 onClick={() => handleToggleHabit(h.id)}
                 className={`p-3 rounded-xl border flex items-center justify-between cursor-pointer transition-colors ${
-                  h.completed ? 'bg-[#5A8F6B]/10 border-[#5A8F6B]/30' : 'bg-[#F5F1E8]/50 border-[#E3DCCB] hover:bg-[#F5F1E8]'
+                  h.completed
+                    ? 'bg-[#34C759]/10 border-[#34C759]/30'
+                    : 'bg-white border-[var(--maru-border-soft)] hover:bg-[#F2F2F7]'
                 }`}
               >
                 <div className="flex items-center gap-3 text-xs">
                   {h.completed ? (
-                    <CheckSquare size={18} className="text-[#5A8F6B]" />
+                    <CheckSquare size={18} className="text-[#34C759]" />
                   ) : (
-                    <Square size={18} className="text-[#6B7F8C]" />
+                    <Square size={18} className="text-[var(--maru-text-dim)]" />
                   )}
-                  <span className={h.completed ? 'line-through text-[#6B7F8C]' : 'font-medium text-[#2C3E50]'}>
+                  <span
+                    className={
+                      h.completed
+                        ? 'line-through text-[var(--maru-text-dim)]'
+                        : 'font-medium text-[var(--maru-text)]'
+                    }
+                  >
                     {h.title}
                   </span>
                 </div>
-                <span className="text-[11px] font-mono text-[#1E3A5F]">{h.time}</span>
+                <span className="text-[11px] font-mono text-[var(--maru-text-muted)]">{h.time}</span>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Pomodoro Timer Widget */}
         <PomodoroTimer />
       </div>
 
-      {/* Quick Prompt Bar */}
-      <div className="bg-white p-4 rounded-2xl border border-[#E3DCCB] shadow-sm">
+      <div className="bg-white shadow-sm border border-[var(--maru-border-soft)] p-4 rounded-2xl">
         <form onSubmit={handleQuickSubmit} className="flex items-center gap-3">
           <input
             type="text"
             value={quickInput}
             onChange={(e) => setQuickInput(e.target.value)}
             placeholder={`¿En qué pensamos hoy, ${userProfile.name}?`}
-            className="flex-1 px-4 py-2.5 bg-[#F5F1E8]/60 border border-[#E3DCCB] rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#4A9B9D]"
+            className="flex-1 px-4 py-2.5 bg-[#F2F2F7] border border-[var(--maru-border-soft)] rounded-xl text-sm text-[var(--maru-text)] placeholder:text-[var(--maru-text-muted)] focus:outline-none focus:ring-2 focus:ring-[var(--maru-gold)] focus:border-transparent"
           />
           <button
             type="submit"
-            className="px-5 py-2.5 bg-[#1E3A5F] hover:bg-[#2C3E50] text-white rounded-xl text-xs font-medium flex items-center gap-2 shadow"
+            className="maru-btn-gold px-5 py-2.5 rounded-xl text-sm flex items-center gap-2"
           >
             <span>Conversar</span>
-            <Send size={14} />
+            <Send size={16} />
           </button>
         </form>
       </div>

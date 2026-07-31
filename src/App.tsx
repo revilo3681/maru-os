@@ -73,9 +73,11 @@ export function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F5F1E8] text-[#2C3E50] font-sans antialiased flex flex-col md:flex-row overflow-hidden relative">
-      {/* Background Particles */}
-      <ParticleBackground activeAgentId={currentTab === 'chat' ? activeAgentId : undefined} />
+    <div className="min-h-screen bg-[var(--maru-bg)] text-[var(--maru-text)] font-sans antialiased flex flex-col md:flex-row overflow-hidden relative">
+      {/* Background Particles — subdued on dark shell */}
+      {currentTab !== 'landing' && (
+        <ParticleBackground activeAgentId={currentTab === 'chat' ? activeAgentId : undefined} />
+      )}
 
       {/* Landing Page Route */}
       {currentTab === 'landing' && (
