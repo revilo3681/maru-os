@@ -1,6 +1,7 @@
 @import "tailwindcss";
 
-:root {
+:root,
+:root[data-theme="light"] {
   color-scheme: light;
   font-family: 'DM Sans', sans-serif;
   --maru-void: #102b35;
@@ -37,6 +38,40 @@
   --maru-teal: var(--maru-primary);
 }
 
+/* Andean night — teal-navy void, cream accents (not purple-on-white) */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --maru-void: #0a1a20;
+  --maru-bg: #102b35;
+  --maru-bg-elevated: #163540;
+  --maru-surface: #1a3d48;
+  --maru-surface-muted: #14323c;
+  --maru-surface-2: var(--maru-surface-muted);
+  --maru-text: #eef3f1;
+  --maru-text-muted: #a8b8ba;
+  --maru-text-dim: #7a8e90;
+  --maru-primary: #3db8b0;
+  --maru-primary-hover: #52c9c1;
+  --maru-primary-soft: rgba(61, 184, 176, 0.16);
+  --maru-gold: #d4b06a;
+  --maru-gold-soft: #c4a56e;
+  --maru-gold-deep: #e0c48a;
+  --maru-amber: #d49a4a;
+  --maru-danger: #e07870;
+  --maru-success: #5cb892;
+  --maru-border: #2a4a55;
+  --maru-border-soft: #234048;
+  --maru-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.25), 0 5px 16px rgba(0, 0, 0, 0.18);
+  --maru-shadow-md: 0 16px 44px rgba(0, 0, 0, 0.35);
+  --maru-read-bg: #14323c;
+  --maru-read-ink: var(--maru-text);
+  --maru-read-muted: var(--maru-text-muted);
+  --maru-read-card: var(--maru-surface);
+  --maru-read-line: var(--maru-border-soft);
+  --maru-navy: var(--maru-text);
+  --maru-teal: var(--maru-primary);
+}
+
 @layer utilities {
   .font-display {
     font-family: 'Outfit', sans-serif;
@@ -63,7 +98,7 @@
   }
 
   .maru-glass {
-    background: rgba(255, 255, 255, 0.92);
+    background: color-mix(in srgb, var(--maru-surface) 92%, transparent);
     backdrop-filter: blur(16px);
     border: 1px solid var(--maru-border);
   }
@@ -440,5 +475,218 @@
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+}
+
+/* ── Landing: Impacto (purple/blue glass) ── */
+.maru-impact-section {
+  background:
+    radial-gradient(ellipse 80% 60% at 12% 18%, rgba(139, 92, 246, 0.45), transparent 55%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(59, 130, 246, 0.42), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(99, 102, 241, 0.35), transparent 55%),
+    linear-gradient(155deg, #1e1b4b 0%, #312e81 28%, #1e3a8a 62%, #0f172a 100%);
+  color: #f8fafc;
+}
+
+.maru-impact-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.maru-impact-orb {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(40px);
+  opacity: 0.55;
+}
+
+.maru-impact-orb--a {
+  width: min(42vw, 28rem);
+  height: min(42vw, 28rem);
+  top: -12%;
+  left: -8%;
+  background: radial-gradient(circle, rgba(167, 139, 250, 0.85), transparent 70%);
+  animation: maru-impact-float 14s ease-in-out infinite;
+}
+
+.maru-impact-orb--b {
+  width: min(36vw, 24rem);
+  height: min(36vw, 24rem);
+  top: 18%;
+  right: -10%;
+  background: radial-gradient(circle, rgba(96, 165, 250, 0.75), transparent 70%);
+  animation: maru-impact-float 18s ease-in-out infinite reverse;
+}
+
+.maru-impact-orb--c {
+  width: min(48vw, 32rem);
+  height: min(48vw, 32rem);
+  bottom: -22%;
+  left: 28%;
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.55), transparent 70%);
+  animation: maru-impact-float 22s ease-in-out infinite;
+}
+
+.maru-impact-grid {
+  position: absolute;
+  inset: 0;
+  opacity: 0.14;
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 70% 60% at 50% 40%, #000 20%, transparent 75%);
+}
+
+.maru-impact-eyebrow {
+  color: #c4b5fd;
+}
+
+.maru-impact-card {
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow:
+    0 4px 24px rgba(15, 23, 42, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.18);
+  backdrop-filter: blur(18px) saturate(1.25);
+  -webkit-backdrop-filter: blur(18px) saturate(1.25);
+  transition:
+    transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.35s ease,
+    border-color 0.35s ease,
+    background 0.35s ease;
+}
+
+.maru-impact-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(196, 181, 253, 0.55);
+  box-shadow:
+    0 18px 44px rgba(15, 23, 42, 0.35),
+    0 0 0 1px rgba(167, 139, 250, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.maru-impact-card--open {
+  border-color: rgba(196, 181, 253, 0.65);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.maru-impact-card__media {
+  position: relative;
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  background: linear-gradient(135deg, #312e81, #1e3a8a);
+}
+
+.maru-impact-card__media::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 55%, rgba(15, 23, 42, 0.35) 100%);
+  pointer-events: none;
+}
+
+.maru-impact-card__media img {
+  transition: transform 0.55s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.maru-impact-card:hover .maru-impact-card__media img {
+  transform: scale(1.04);
+}
+
+.maru-impact-cta {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  width: 100%;
+  padding: 0.65rem 1.1rem;
+  border-radius: 0.75rem;
+  font-family: 'Outfit', sans-serif;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: #1e1b4b;
+  background: linear-gradient(135deg, #e9e5ff 0%, #dbeafe 48%, #ffffff 100%);
+  border: 1px solid rgba(255, 255, 255, 0.55);
+  box-shadow: 0 8px 20px rgba(30, 27, 75, 0.22);
+  cursor: pointer;
+  transition:
+    transform 0.22s ease,
+    box-shadow 0.22s ease,
+    filter 0.22s ease,
+    background 0.22s ease;
+}
+
+.maru-impact-cta:hover {
+  transform: translateY(-2px) scale(1.015);
+  filter: brightness(1.05);
+  box-shadow: 0 12px 28px rgba(79, 70, 229, 0.35);
+  background: linear-gradient(135deg, #f5f3ff 0%, #eff6ff 45%, #ffffff 100%);
+}
+
+.maru-impact-cta:focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 3px;
+}
+
+.maru-impact-cta:active {
+  transform: translateY(0) scale(0.99);
+}
+
+:root[data-theme="dark"] .maru-impact-section {
+  background:
+    radial-gradient(ellipse 80% 60% at 12% 18%, rgba(109, 40, 217, 0.38), transparent 55%),
+    radial-gradient(ellipse 70% 55% at 88% 12%, rgba(37, 99, 235, 0.36), transparent 50%),
+    radial-gradient(ellipse 60% 50% at 50% 100%, rgba(67, 56, 202, 0.3), transparent 55%),
+    linear-gradient(155deg, #0b1026 0%, #1e1b4b 32%, #172554 68%, #020617 100%);
+}
+
+:root[data-theme="dark"] .maru-impact-card {
+  background: rgba(15, 23, 42, 0.55);
+  border-color: rgba(196, 181, 253, 0.28);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 rgba(255, 255, 255, 0.1);
+}
+
+:root[data-theme="dark"] .maru-impact-card:hover,
+:root[data-theme="dark"] .maru-impact-card--open {
+  background: rgba(30, 41, 59, 0.72);
+  border-color: rgba(196, 181, 253, 0.5);
+}
+
+:root[data-theme="dark"] .maru-impact-cta {
+  color: #eef2ff;
+  background: linear-gradient(135deg, rgba(99, 102, 241, 0.95) 0%, rgba(59, 130, 246, 0.9) 100%);
+  border-color: rgba(196, 181, 253, 0.4);
+}
+
+:root[data-theme="dark"] .maru-impact-cta:hover {
+  background: linear-gradient(135deg, rgba(129, 140, 248, 1) 0%, rgba(96, 165, 250, 0.95) 100%);
+}
+
+@keyframes maru-impact-float {
+  0%, 100% { transform: translate3d(0, 0, 0) scale(1); }
+  50% { transform: translate3d(12px, -18px, 0) scale(1.06); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .maru-impact-orb--a,
+  .maru-impact-orb--b,
+  .maru-impact-orb--c {
+    animation: none;
+  }
+  .maru-impact-card:hover,
+  .maru-impact-cta:hover {
+    transform: none;
+  }
+  .maru-impact-card:hover .maru-impact-card__media img {
+    transform: none;
   }
 }

@@ -16,7 +16,12 @@ except ImportError:
 try:
     from app.core.ollama import ollama_client
     from app.services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
-    from app.services.knowledge_base import build_rag_context, list_documents
+    from app.services.knowledge_base import (
+        build_rag_context,
+        list_documents,
+        export_full_knowledge,
+        try_refresh_from_remote,
+    )
     from app.services import model_config
     from app.services.peru_data import PeruDataService
     from app.services.onboarding import AccountService
@@ -27,7 +32,12 @@ try:
 except ImportError:
     from ..core.ollama import ollama_client
     from ..services.agents import AGENTS_METADATA, CognitiveAgentRouter, get_agent_system_prompt
-    from ..services.knowledge_base import build_rag_context, list_documents
+    from ..services.knowledge_base import (
+        build_rag_context,
+        list_documents,
+        export_full_knowledge,
+        try_refresh_from_remote,
+    )
     from ..services import model_config
     from ..services.peru_data import PeruDataService
     from ..services.onboarding import AccountService
@@ -207,6 +217,33 @@ async def get_knowledge(agent: Optional[str] = None, q: Optional[str] = None):
         ],
     }
 
+@router.get("/knowledge/export")
+async def knowledge_export():
+    """Export completo de la KB activa (embebida + overrides) para sync entre instancias."""
+    return export_full_knowledge()
+
+@router.post("/knowledge/refresh")
+async def knowledge_refresh(remote_url: Optional[str] = None):
+    """
+    Fusiona documentos desde MARU_KB_REMOTE_URL o ?remote_url=.
+    Valida schema y guarda override en backend/app/data/kb/remote_override.json.
+    """
+    result = try_refresh_from_remote(api_base=remote_url)
+    return result
+
+@router.get("/knowledge/pdfs")
+async def knowledge_pdfs():
+    """Manifiesto de PDFs descargables por especialidad (espejo de public/kb/pdfs)."""
+    from pathlib import Path
+    candidates = [
+        Path(__file__).resolve().parent.parent / "data" / "kb" / "pdfs" / "manifest.json",
+        Path(__file__).resolve().parents[3] / "public" / "kb" / "pdfs" / "manifest.json",
+    ]
+    for path in candidates:
+        if path.exists():
+            return json.loads(path.read_text(encoding="utf-8"))
+    return {"count": 0, "pdfs": [], "reason": "manifest no generado — ejecute scripts/generate_kb_pdfs.py"}
+
 @router.get("/agents")
 async def get_agents():
     return list(AGENTS_METADATA.values())
@@ -315,9 +352,43 @@ async def cognitive_chat(req: ChatRequest):
 
     user_name = req.userProfile.get("name", "Oliver") if req.userProfile else "Oliver"
     city = req.locationProfile.get("city", "Chosica") if req.locationProfile else "Chosica"
-    allergies = ", ".join(req.healthProfile.get("allergies", ["Maní"])) if req.healthProfile else "Maní"
-    meds = ", ".join([f"{m['name']} ({m['dose']})" for m in req.healthProfile.get("currentMedications", [])]) if req.healthProfile and "currentMedications" in req.healthProfile else "Amoxicilina (500mg)"
+    allergies_list = (req.healthProfile or {}).get("allergies", []) or []
+    meds_list = (req.healthProfile or {}).get("currentMedications", []) or []
+    allergies = ", ".join(allergies_list) if allergies_list else "ninguna registrada"
+    med_parts = []
+    for m in meds_list:
+        name = m.get("name", "")
+        dose = m.get("dose", "")
+        cond = m.get("condition") or ""
+        times = ", ".join(m.get("scheduleTimes") or [])
+        bit = f"{name} ({dose})"
+        if cond:
+            bit += f" [{cond}]"
+        if times:
+            bit += f" @{times}"
+        med_parts.append(bit)
+    meds = ", ".join(med_parts) if med_parts else "ninguno registrado"
     custom_context = req.userContext or (req.userProfile.get("customContext", "") if req.userProfile else "")
+
+    # Sincronizar perfil → grafo Neo4j (mejor esfuerzo) y leer rastro
+    graph_context = ""
+    try:
+        for a in allergies_list:
+            graph_store.add_user_allergy(user_name, a)
+        for m in meds_list:
+            if m.get("name"):
+                graph_store.add_user_medication(user_name, m["name"], m.get("dose", ""))
+        graph_hits = graph_store.check_medical_interactions(user_name) or []
+        if graph_hits:
+            graph_lines = []
+            for g in graph_hits:
+                graph_lines.append(
+                    f"- Alergia grafo: {g.get('allergy')} | Meds: {', '.join(g.get('medications') or []) or '—'}"
+                )
+            graph_context = "\n[GRAFO DE CONOCIMIENTO — Neo4j]\n" + "\n".join(graph_lines) + "\n"
+            reason += " + [Grafo Neo4j]"
+    except Exception:
+        pass
 
     user_lock = get_user_lock(user_name)
 
@@ -363,10 +434,12 @@ Dile al usuario qué tiene pendiente de manera muy natural, si te lo pregunta di
 Hablas de forma empática, cálida y directa a {user_name} en {city}.
 Perfil del usuario: Alergias: [{allergies}], Medicamentos: [{meds}].{context_bullet}
 Si el usuario pregunta por comidas, medicamentos o salud, valida estrictamente las alergias.
+{graph_context}
 {memory_context}
 {agenda_context}
 {rag_context}
 {vault_context}
+Usa siempre el contexto de perfil, grafo, memoria y fuentes oficiales cuando exista.
 Responde en idioma Español con calidez humana."""
 
     # 4. Procesar archivo adjunto (PDF / OCR / texto) si existe

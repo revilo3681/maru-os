@@ -130,6 +130,55 @@ export const ApiService = {
     return null;
   },
 
+  /**
+   * Refresh hook: when backend is reachable, pull the live KB catalog.
+   * Falls back to /kb/catalog.json (static seed) then to the bundled index.
+   * Does not invent remote documents — only mirrors what the API already serves.
+   */
+  async refreshKnowledgeCatalog(): Promise<{ source: string; total: number } | null> {
+    try {
+      const live = await this.getKnowledge();
+      if (live?.documents?.length) {
+        return { source: 'api', total: live.total };
+      }
+    } catch {
+      /* fall through */
+    }
+    try {
+      const res = await fetch('/kb/catalog.json');
+      if (res.ok) {
+        const data = await res.json();
+        return { source: 'static-catalog', total: data.count || data.documents?.length || 0 };
+      }
+    } catch (e) {
+      console.warn('Static KB catalog unavailable:', e);
+    }
+    return null;
+  },
+
+  /**
+   * POST /knowledge/refresh — fusiona docs desde MARU_KB_REMOTE_URL en el backend.
+   * Sin URL remota el backend responde status: skipped (corpus offline intacto).
+   */
+  async refreshKnowledgeRemote(remoteUrl?: string): Promise<{
+    status: string;
+    reason?: string;
+    merged?: number;
+    documentCount?: number;
+    embeddedCount?: number;
+    remoteMerged?: number;
+    sourceUrl?: string;
+  } | null> {
+    try {
+      const qs = remoteUrl ? `?remote_url=${encodeURIComponent(remoteUrl)}` : '';
+      const res = await fetch(`${API_BASE_URL}/knowledge/refresh${qs}`, { method: 'POST' });
+      if (res.ok) return await res.json();
+    } catch (e) {
+      console.warn('Knowledge refresh offline:', e);
+    }
+    return null;
+  },
+
   /** Estado real de Ollama + catálogo de modelos seleccionables con disponibilidad. */
   async getModels(): Promise<ModelsResponse | null> {
     try {

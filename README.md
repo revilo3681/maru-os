@@ -8,32 +8,43 @@
 ## 🌟 Características Principales
 
 ### 🧠 1. Router Cognitivo de IA Local (Ultra-Rápido por Defecto)
-- **Rápido por Defecto:** Utiliza el modelo cuantizado ultrarrápido **`gemma4:e2b`** (3.2 GB RAM) para interacciones cotidianas y conversacionales de respuesta visualmente instantánea.
-- **Escalado Automático:** Detecta cuando la consulta requiere razonamiento profundo (medicina, legal, análisis de código o emergencias) y escala automáticamente a **`gemma4:12b`** o **`gemma4:e4b`**.
-- **Ocultamiento de Proceso Cognitivo:** El cuadro de "Pensando..." solo se despliega en consultas complejas, manteniendo las conversaciones simples limpias y veloces.
+- **Rápido por Defecto:** Utiliza el modelo cuantizado ultrarrápido **`gemma4:e2b`** (y preferencia Q4 cuando existe) para interacciones cotidianas.
+- **Escalado Automático:** Detecta consultas complejas (medicina, legal, código, emergencias) y escala a **`gemma4:12b`**, **`gemma4:e4b`** o cloud (`gemma4:cloud`).
+- **Inyector IA universal:** cambios en paneles (salud, clima, traducción, notas, etc.) actualizan grafo, memoria y el próximo mensaje del chat del agente.
 
-### 🎨 2. Diseño Moderno Claro (Estilo Apple / Google iOS)
-- **Aesthetica Premium:** Tarjetas blancas `shadow-sm`, bordes redondeados `rounded-2xl` y tipografía optimizada.
-- **Chat Estilo iOS:** Mensajes del usuario en burbuja azul `#007AFF` e integración de tarjetas claras `#F2F2F7` para las respuestas de los agentes.
-- **Portada Multimedia:** Fondo en video promocional (`fondo-video.mp4`) y reproductor de música de fondo (`musica-portada.mp3`) con menú desplegable para control de volumen de 0% a 100%, silenciador y play/pausa.
+### 🎨 2. Portada e Interfaz
+- **Landing Impacto:** sección “La IA que acompaña a las personas…” con 4 cards ilustradas (rescate, programación en la nube, Maru niños, traductor Quechua).
+- **Tema Claro / Oscuro** persistente (`themeMode`) en portada y app.
+- **Menú hamburguesa** en la landing + cards de los 7 agentes con iconos.
+- Personalización de usuario (foto de perfil + colores de interfaz) desde Inicio.
 
-### 🎙️ 3. Voz e Interacción Natural (STT & TTS)
-- **Banner Evidente de Voz (STT):** Banner pulsante en vivo que notifica cuando el micrófono está grabando mediante procesamiento rápido con Whisper.
-- **Lectura por Voz (TTS):** Cada agente cuenta con una síntesis de voz personalizada según su rol.
+### 🩺 3. Salud integral (Aya / Sumaq)
+- Pastillero avanzado: forma, dosis (mg/ml/cucharadas), horarios, duración, cronómetro desde la última toma.
+- Catálogo de ~200 medicamentos comunes con descripción y detección de interacciones.
+- Condiciones crónicas personalizadas, información del paciente (edad/altura/peso), citas y tomas reales.
 
-### 🚨 4. Módulo de Emergencias Perú (Huaicos & Sismos)
-- Integración de reportes sísmicos del **IGP** y alertas de precipitaciones/huaicos en **Chosica y Lima Metropolitana**.
-- Generación instantánea de **Mapa de Evacuación** a zonas seguras y protocolo de emergencia con el agente **Tupac**.
+### 📚 4. Memoria, Grafo y Bóveda PDF
+- Grafo de conocimiento + árbol “lo que MARU sabe de ti”.
+- **PDFs descargables por especialidad** en Memoria / Ajustes (`/kb/pdfs/`): salud, legal, emergencia, clima, Perú, desarrollo.
+- Sync remoto de KB: `POST /api/knowledge/refresh` con `MARU_KB_REMOTE_URL` (merge validado sobre el corpus offline).
 
-### ✉️ 5. Integración Real con Gmail
-- Lectura en segundo plano de correos de alta prioridad.
-- Notificación automática y generación de **Borradores Inteligentes** editables o enviables con 1-click.
+### 🌿 5. Datos reales de Perú
+- Clima vía Open-Meteo / SENAMHI con reporte diario por ciudad.
+- Catálogo ampliado de ciudades y distritos con validación.
+- Emergencias, IGP e INDECI en el corpus offline.
 
-### 🗓️ 6. Calendario & Gestor de Tareas Nativo
-- Sincronización de eventos, rutinas de bienestar y tomas de medicamentos reflejados directamente en el Dashboard principal.
+### 🎙️ 6. Voz e Interacción Natural (STT & TTS)
+- Dictado continuo al chat y TTS por agente.
+- Saludo de Inicio con cooldown (10 min) y tips amables periódicos (5 min).
 
-### 🔒 7. Soberanía & Privacidad Radical
-- Cifrado local en dispositivo, frases de recuperación de 12 palabras y **Modo Efímero** para evitar el guardado de historial en PostgreSQL o en la base vectorial RAG.
+### ✉️ 7. Correo, Notas y Calendario
+- Borradores de correo + respuesta asistida.
+- Notas con modo **hoja de cálculo**.
+- Rutinas editables (diario / semanal / días custom).
+
+### 🔒 8. Soberanía & Privacidad
+- Cifrado local, frase de 12 palabras, **Modo Efímero**.
+- Mínimo **1 especialista activo** (no se resetea a “todos”).
 
 ---
 
@@ -41,13 +52,13 @@
 
 | Agente | Nombre | Especialidad | Modelo Sugerido |
 | :--- | :--- | :--- | :--- |
-| 🩺 | **Aya** | Salud Integral, Alergias & Medicamentos | `gemma4:12b` (7.6GB) |
-| 🧘 | **Sumaq** | Bienestar, Hábitos & Meditación Guiada | `gemma4:e2b` (3.2GB) |
-| 💻 | **Kipu** | Programación, Arquitectura & Código | `gemma4:12b` (7.6GB) |
-| 🌿 | **Pacha** | Clima SENAMHI, Medio Ambiente & Aire | `gemma4:e2b` (3.2GB) |
-| 🌋 | **Tupac** | Emergencias, Sismos IGP & Huaicos | `gemma4:e4b` (9.6GB) |
-| ⚖️ | **Inti** | Asesoría Legal & Leyes de Perú | `gemma4:e4b` (9.6GB) |
-| 🇵🇪 | **Yaku** | Demografía INEI, Cultura & Lengua Quechua | `gemma4:e2b` (3.2GB) |
+| 🩺 | **Aya** | Salud Integral, Alergias & Medicamentos | `gemma4:12b` |
+| 🧘 | **Sumaq** | Bienestar, Hábitos & Meditación Guiada | `gemma4:e2b` |
+| 💻 | **Kipu** | Programación, Arquitectura & Código | `gemma4:12b` |
+| 🌿 | **Pacha** | Clima SENAMHI, Medio Ambiente & Aire | `gemma4:e2b` |
+| 🌋 | **Tupac** | Emergencias, Sismos IGP & Huaicos | `gemma4:e4b` |
+| ⚖️ | **Inti** | Asesoría Legal & Leyes de Perú | `gemma4:e4b` |
+| 🇵🇪 | **Yaku** | Demografía INEI, Cultura & Lengua Quechua | `gemma4:e2b` |
 
 ---
 
@@ -57,108 +68,118 @@
 Entorno del Usuario (Mac / Windows / Linux)
 │
 ├── OLLAMA (Servidor de Modelos Locales)
-│   ├── gemma4:e2b  (Modelo Rápido Conversacional ~3.2 GB)
-│   ├── gemma4:12b  (Modelo Intermedio Salud/Código ~7.6 GB)
-│   └── gemma4:e4b  (Modelo Razonador Legal/Emergencias ~9.6 GB)
+│   ├── gemma4:e2b / e2b-q4
+│   ├── gemma4:12b / 12b-q4
+│   └── gemma4:e4b / e4b-q4 (+ cloud opcional)
 │
 └── CONTENEDORES DOCKER
-    ├── maru_postgres  (PostgreSQL 16: Datos estructurados, hábitos, calendario)
-    ├── maru_redis     (Redis 7: Caché de sesiones e intenciones)
-    ├── maru_qdrant    (Qdrant: Base Vectorial RAG para memoria semántica)
-    ├── maru_neo4j     (Neo4j 5: Grafo de conocimiento de salud y medicamentos)
-    ├── maru_backend   (FastAPI + Python 3.12 en http://localhost:8000)
-    └── maru_frontend  (React 19 + Vite + Tailwind en http://localhost:3000)
+    ├── maru_postgres  (PostgreSQL 16)
+    ├── maru_redis     (Redis 7)
+    ├── maru_qdrant    (Qdrant RAG)
+    ├── maru_neo4j     (Neo4j grafo)
+    ├── maru_backend   (FastAPI · http://localhost:8000)
+    └── maru_frontend  (React + Vite · http://localhost:3000)
 ```
 
 ---
 
-## 📋 Requisitos Previos (¿Qué debes descargar e instalar?)
+## 📋 Requisitos Previos
 
-Antes de comenzar, asegúrate de tener instalado en tu computadora:
-
-1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**: Necesario para ejecutar la base de datos, caché y servicios backend/frontend.
-2. **[Node.js v20+](https://nodejs.org/)**: Para gestión de paquetes local si deseas compilar o desarrollar fuera de Docker.
-3. **[Ollama](https://ollama.com/)**: Motor para ejecutar los modelos de inteligencia artificial de forma local en tu GPU/CPU.
-4. **[Git](https://git-scm.com/)**: Para clonar el repositorio.
+1. **[Docker Desktop](https://www.docker.com/products/docker-desktop/)**
+2. **[Node.js v20+](https://nodejs.org/)** (desarrollo local)
+3. **[Ollama](https://ollama.com/)**
+4. **[Git](https://git-scm.com/)**
 
 ---
 
-## 🚀 Guía de Instalación y Puesta en Marcha (Paso a Paso)
+## 🚀 Guía de Instalación
 
-### Paso 1: Clonar el Repositorio
+### Paso 1: Clonar
 ```bash
 git clone https://github.com/revilo3681/maru-os.git
 cd maru-os
 ```
 
-### Paso 2: Descargar los Modelos Locales en Ollama
-Abre una terminal en tu computadora y ejecuta los siguientes comandos para descargar los modelos necesarios:
+### Paso 2: Modelos Ollama
 ```bash
-# Modelo Rápido (Obligatorio)
 ollama pull gemma4:e2b
-
-# Modelos Avanzados para Razonamiento Profundo (Recomendados)
 ollama pull gemma4:12b
 ollama pull gemma4:e4b
+# Opcional cuantizados
+# ollama pull gemma4:e2b-q4
 ```
 
-> **Nota:** Verifica que Ollama esté corriendo ejecutando `ollama list` en tu consola.
+### Paso 3: Multimedia (opcional)
+Coloca `musica-portada.mp3` / video en `public/` si los necesitas (no van al repo por peso).
 
-### Paso 3: Configurar Archivos Multimedia (Opcional)
-- Para la música de fondo de la portada, coloca tu archivo audio `musica-portada.mp3` en la raíz del proyecto o dentro de la carpeta `public/`. *(Por límites de peso en GitHub, los archivos `.mp3` no se suben al repositorio).*
-
-### Paso 4: Levantar los Servicios con Docker Compose
-Ejecuta el siguiente comando para construir y desplegar toda la infraestructura:
+### Paso 4: Docker Compose
 ```bash
-docker-compose up -d --build
+docker compose up -d --build
 ```
 
-### Paso 5: Abrir MARU OS
-Abre tu navegador web e ingresa a:
+Opcional — sync remoto de conocimiento (otra instancia MARU o mirror JSON):
+```bash
+# en docker-compose / .env del backend
+MARU_KB_REMOTE_URL=http://otra-instancia:8000/api
+```
+
+### Paso 5: Abrir
 👉 **`http://localhost:3000`**
+
+### Regenerar PDFs de la bóveda
+```bash
+python3 scripts/generate_kb_pdfs.py
+```
+Quedan en `public/kb/pdfs/` (también espejo en `backend/app/data/kb/pdfs/`).
 
 ---
 
 ## 💻 Desarrollo Local (Sin Docker)
 
-Si prefieres ejecutar el frontend o backend de forma independiente para desarrollo:
-
-### Backend (Python FastAPI)
+### Backend
 ```bash
 cd backend
 pip install -r requirements.txt
 uvicorn app.main:app --reload --port 8000
 ```
 
-### Frontend (React + Vite)
+### Frontend
 ```bash
 npm install
 npm run dev
 ```
 
+### Endpoints útiles de conocimiento
+| Método | Ruta | Uso |
+| :--- | :--- | :--- |
+| GET | `/api/knowledge` | Lista / busca docs |
+| GET | `/api/knowledge/export` | Export completo (sync) |
+| POST | `/api/knowledge/refresh` | Merge desde `MARU_KB_REMOTE_URL` |
+| GET | `/api/knowledge/pdfs` | Manifiesto de PDFs |
+
 ---
 
-## 🛠️ Comandos de Mantenimiento
+## 🧪 QA rápido sugerido
 
-- **Ver Estado de los Contenedores:**
-  ```bash
-  docker-compose ps
-  ```
-- **Ver Logs del Sistema:**
-  ```bash
-  docker-compose logs -f
-  ```
-- **Detener los Servicios:**
-  ```bash
-  docker-compose down
-  ```
+1. Portada → **Impacto** (4 ilustraciones) + Claro/Oscuro + menú hamburguesa  
+2. Onboarding paso salud → alergia con Enter  
+3. Aya → agregar medicamento del catálogo → ver cronómetro / Memoria  
+4. Pacha → ciudad con datos Open-Meteo  
+5. Ajustes → no permitir 0 agentes; descargar un PDF; “Actualizar KB”  
+6. Notas → toggle hoja de cálculo  
+
+---
+
+## 🛠️ Mantenimiento
+
+```bash
+docker compose ps
+docker compose logs -f
+docker compose down
+```
 
 ---
 
 ## 📄 Licencia
+
 Desarrollado con ❤️ para empoderar la soberanía tecnológica, la privacidad y el bienestar local.
-
-reviciones oliver
-
-hola como estas
-

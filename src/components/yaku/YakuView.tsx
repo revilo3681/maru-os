@@ -5,6 +5,7 @@ import { UserProfile, HealthProfile, LocationProfile } from '../../types';
 import { PERU_SEED_DATA } from '../../data/seedPeru';
 import { PERUVIAN_NATIVE_LANGUAGES, NATIVE_QUICK_WORDS } from '../../data/nativeLanguages';
 import { ApiService } from '../../services/apiService';
+import { syncYakuTranslation } from '../../services/knowledgeSync';
 
 interface YakuViewProps {
   userProfile: UserProfile;
@@ -58,6 +59,11 @@ export const YakuView: React.FC<YakuViewProps> = ({ userProfile, healthProfile, 
       if (res && res.translation) {
         setTranslatedText(res.translation);
         setPhoneticText(res.phonetic || '');
+        syncYakuTranslation({
+          sourceLang,
+          targetLang,
+          sample: `${text.slice(0, 40)} → ${String(res.translation).slice(0, 40)}`
+        });
       } else {
         setTranslatedText('No se pudo completar la traducción.');
         setPhoneticText('');

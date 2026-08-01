@@ -1,10 +1,15 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Plus, Search, FileText, Bot, Save, Bold, Italic, List,
-  Heading2, History, Upload, Trash2
+  Heading2, History, Upload, Trash2, Table2, Type
 } from 'lucide-react';
 import { Note } from '../../types';
 import { ApiService } from '../../services/apiService';
+import { syncNotesChange } from '../../services/knowledgeSync';
+
+function emptySheet(rows = 8, cols = 6): string[][] {
+  return Array.from({ length: rows }, () => Array.from({ length: cols }, () => ''));
+}
 
 interface NoteVersion {
   at: string;
@@ -74,12 +79,53 @@ export const NotesView: React.FC = () => {
       id: Date.now().toString(),
       title: 'Nueva Nota',
       content: '',
+      kind: 'text',
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString()
     };
     setNotes([newNote, ...notes]);
     setSelectedNote(newNote);
     setShowHistory(false);
+  };
+
+  const toggleNoteKind = () => {
+    if (!selectedNote) return;
+    if (selectedNote.kind === 'sheet') {
+      setSelectedNote({
+        ...selectedNote,
+        kind: 'text',
+        content: selectedNote.content || selectedNote.sheet?.map((r) => r.join('\t')).join('\n') || ''
+      });
+    } else {
+      const fromText = selectedNote.content
+        ? selectedNote.content.split('\n').map((line) => line.split('\t'))
+        : emptySheet();
+      const cols = Math.max(6, ...fromText.map((r) => r.length));
+      const sheet = fromText.map((r) => {
+        const row = [...r];
+        while (row.length < cols) row.push('');
+        return row;
+      });
+      while (sheet.length < 8) sheet.push(Array.from({ length: cols }, () => ''));
+      setSelectedNote({
+        ...selectedNote,
+        kind: 'sheet',
+        sheet,
+        content: JSON.stringify(sheet)
+      });
+    }
+  };
+
+  const updateSheetCell = (ri: number, ci: number, value: string) => {
+    if (!selectedNote?.sheet) return;
+    const sheet = selectedNote.sheet.map((row, i) =>
+      i === ri ? row.map((cell, j) => (j === ci ? value : cell)) : row
+    );
+    setSelectedNote({
+      ...selectedNote,
+      sheet,
+      content: JSON.stringify(sheet)
+    });
   };
 
   const handleSaveNote = async () => {
@@ -94,6 +140,8 @@ export const NotesView: React.FC = () => {
       await ApiService.saveNote(updated);
       setSelectedNote(updated);
       await fetchNotes();
+      const all = await ApiService.getNotes().catch(() => notes);
+      syncNotesChange(all.length ? all : [updated, ...notes.filter((n) => n.id !== updated.id)], `Nota guardada: ${updated.title}`);
     } catch (e) {
       console.error(e);
       // local fallback already in apiService
@@ -101,6 +149,7 @@ export const NotesView: React.FC = () => {
         const exists = prev.some((n) => n.id === updated.id);
         const next = exists ? prev.map((n) => (n.id === updated.id ? updated : n)) : [updated, ...prev];
         localStorage.setItem('maru_notes', JSON.stringify(next));
+        syncNotesChange(next, `Nota guardada (local): ${updated.title}`);
         return next;
       });
     } finally {
@@ -237,8 +286,12 @@ export const NotesView: React.FC = () => {
             >
               <FileText size={16} className={`mt-0.5 ${selectedNote?.id === note.id ? 'text-[#4A9B9D]' : 'text-gray-400'}`} />
               <div className="overflow-hidden">
-                <div className="font-medium text-[#2C3E50] text-sm truncate">{note.title}</div>
+                <div className="font-medium text-[#2C3E50] text-sm truncate flex items-center gap-1">
+                  {note.kind === 'sheet' ? <Table2 size={12} /> : null}
+                  {note.title}
+                </div>
                 <div className="text-xs text-gray-500 truncate mt-0.5">
+                  {note.kind === 'sheet' ? 'Hoja de cálculo · ' : ''}
                   {new Date(note.updatedAt).toLocaleDateString('es-PE')}
                 </div>
               </div>
@@ -270,14 +323,65 @@ export const NotesView: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap items-center gap-1 px-3 py-2 border-b border-[var(--maru-border-soft)] bg-[var(--maru-surface-muted)]">
-            <button onClick={() => wrapSelection('**')} className="p-2 rounded-lg hover:bg-white" title="Negrita"><Bold size={15} /></button>
-            <button onClick={() => wrapSelection('_')} className="p-2 rounded-lg hover:bg-white" title="Cursiva"><Italic size={15} /></button>
-            <button onClick={() => wrapSelection('\n## ', '')} className="p-2 rounded-lg hover:bg-white" title="Título"><Heading2 size={15} /></button>
-            <button onClick={() => wrapSelection('\n- ', '')} className="p-2 rounded-lg hover:bg-white" title="Lista"><List size={15} /></button>
-            <span className="text-[10px] text-[var(--maru-text-muted)] ml-2">Markdown · historial local al guardar</span>
+            <button
+              onClick={toggleNoteKind}
+              className={`px-2.5 py-1.5 rounded-lg text-[11px] font-bold flex items-center gap-1 ${
+                selectedNote.kind === 'sheet'
+                  ? 'bg-[#1E3A5F] text-white'
+                  : 'hover:bg-white text-[var(--maru-text)]'
+              }`}
+              title="Cambiar entre nota y hoja de cálculo"
+            >
+              {selectedNote.kind === 'sheet' ? <><Type size={14} /> Texto</> : <><Table2 size={14} /> Hoja de cálculo</>}
+            </button>
+            {selectedNote.kind !== 'sheet' && (
+              <>
+                <button onClick={() => wrapSelection('**')} className="p-2 rounded-lg hover:bg-white" title="Negrita"><Bold size={15} /></button>
+                <button onClick={() => wrapSelection('_')} className="p-2 rounded-lg hover:bg-white" title="Cursiva"><Italic size={15} /></button>
+                <button onClick={() => wrapSelection('\n## ', '')} className="p-2 rounded-lg hover:bg-white" title="Título"><Heading2 size={15} /></button>
+                <button onClick={() => wrapSelection('\n- ', '')} className="p-2 rounded-lg hover:bg-white" title="Lista"><List size={15} /></button>
+              </>
+            )}
+            <span className="text-[10px] text-[var(--maru-text-muted)] ml-2">
+              {selectedNote.kind === 'sheet' ? 'Hoja numérica · celdas editables' : 'Markdown · historial local al guardar'}
+            </span>
           </div>
 
           <div className="flex-1 overflow-y-auto p-4 sm:p-8 pb-36 bg-[var(--maru-surface)] flex gap-4">
+            {selectedNote.kind === 'sheet' ? (
+              <div className="flex-1 overflow-auto">
+                <table className="border-collapse text-sm min-w-full bg-white rounded-xl overflow-hidden border border-[var(--maru-border-soft)]">
+                  <thead>
+                    <tr>
+                      <th className="w-8 bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]" />
+                      {(selectedNote.sheet?.[0] || []).map((_, ci) => (
+                        <th key={ci} className="px-2 py-1 bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)] font-mono text-[10px] text-[var(--maru-text-muted)]">
+                          {String.fromCharCode(65 + ci)}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {(selectedNote.sheet || emptySheet()).map((row, ri) => (
+                      <tr key={ri}>
+                        <td className="px-1 py-0.5 text-center font-mono text-[10px] text-[var(--maru-text-muted)] bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]">
+                          {ri + 1}
+                        </td>
+                        {row.map((cell, ci) => (
+                          <td key={ci} className="border border-[var(--maru-border-soft)] p-0">
+                            <input
+                              value={cell}
+                              onChange={(e) => updateSheetCell(ri, ci, e.target.value)}
+                              className="w-full min-w-[72px] px-2 py-1.5 outline-none focus:bg-[#4A9B9D]/10 font-mono text-xs"
+                            />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
             <textarea
               ref={textareaRef}
               className="w-full h-full min-h-[420px] resize-none bg-transparent border-none focus:outline-none focus:ring-0 text-[var(--maru-text)] text-[16px] leading-7 flex-1"
@@ -285,6 +389,7 @@ export const NotesView: React.FC = () => {
               value={selectedNote.content}
               onChange={(e) => setSelectedNote({ ...selectedNote, content: e.target.value })}
             />
+            )}
             {showHistory && (
               <div className="w-56 shrink-0 space-y-2">
                 <div className="text-xs font-bold uppercase text-[var(--maru-text-muted)]">Versiones</div>

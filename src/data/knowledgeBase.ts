@@ -39,7 +39,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "hemorragia",
       "arbovirosis"
     ],
-    "summary": "El dengue es una arbovirosis transmitida por el zancudo Aedes aegypti. Cuadro típico: fiebre alta (2-7 días), cefalea, dolor retroocular, mialgias, artralgias, erupción cutánea. Signos de alarma (requieren atención inmed"
+    "summary": "El dengue es una arbovirosis transmitida por el zancudo Aedes aegypti. Cuadro típico: fiebre alta (2-7 días), cefalea, dolor retroocular, mialgias, artralgias, "
   },
   {
     "id": "minsa-anemia-nts134",
@@ -62,7 +62,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "micronutrientes",
       "suplemento"
     ],
-    "summary": "La anemia por deficiencia de hierro se diagnostica con hemoglobina: en niños de 6-59 meses <11.0 g/dL; en gestantes (1er y 3er trimestre) <11.0 g/dL. Los valores se ajustan por altitud (a mayor altura, el punto de corte "
+    "summary": "La anemia por deficiencia de hierro se diagnostica con hemoglobina: en niños de 6-59 meses <11.0 g/dL; en gestantes (1er y 3er trimestre) <11.0 g/dL. Los valore"
   },
   {
     "id": "minsa-tbc-nts104",
@@ -84,7 +84,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "sintomatico respiratorio",
       "pulmones"
     ],
-    "summary": "Sintomático respiratorio: toda persona con tos con flema por 15 días o más debe recibir evaluación gratuita con baciloscopía de esputo en cualquier establecimiento de salud. Diagnóstico: baciloscopía, cultivo y pruebas d"
+    "summary": "Sintomático respiratorio: toda persona con tos con flema por 15 días o más debe recibir evaluación gratuita con baciloscopía de esputo en cualquier establecimie"
   },
   {
     "id": "minsa-diabetes-gpc",
@@ -106,7 +106,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "hipoglicemia",
       "pie diabetico"
     ],
-    "summary": "Diagnóstico de diabetes tipo 2 (cualquiera de los criterios): glucemia en ayunas ≥126 mg/dL (en dos ocasiones), glucemia ≥200 mg/dL a las 2 horas de una carga oral de 75 g de glucosa, HbA1c ≥6.5 %, o glucemia al azar ≥20"
+    "summary": "Diagnóstico de diabetes tipo 2 (cualquiera de los criterios): glucemia en ayunas ≥126 mg/dL (en dos ocasiones), glucemia ≥200 mg/dL a las 2 horas de una carga o"
   },
   {
     "id": "minsa-hipertension-gpc045",
@@ -126,7 +126,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "cardiovascular",
       "crisis hipertensiva"
     ],
-    "summary": "Diagnóstico: presión arterial (PA) ≥140/90 mmHg confirmada en al menos dos mediciones correctas en dos visitas distintas (paciente sentado, en reposo ≥5 minutos, sin café ni tabaco previos)."
+    "summary": "Diagnóstico: presión arterial (PA) ≥140/90 mmHg confirmada en al menos dos mediciones correctas en dos visitas distintas (paciente sentado, en reposo ≥5 minutos"
   },
   {
     "id": "minsa-soroche-altura",
@@ -149,7 +149,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "cefalea",
       "apunamiento"
     ],
-    "summary": "El mal agudo de montaña (soroche) aparece típicamente sobre los 2,500 m s. n. m. (Cusco 3,399 m, Puno 3,827 m, Huaraz 3,052 m) por menor presión parcial de oxígeno. Síntomas: cefalea, náuseas, mareo, fatiga, insomnio, fa"
+    "summary": "El mal agudo de montaña (soroche) aparece típicamente sobre los 2,500 m s. n. m. (Cusco 3,399 m, Puno 3,827 m, Huaraz 3,052 m) por menor presión parcial de oxíg"
   },
   {
     "id": "minsa-covid19",
@@ -169,7 +169,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "aislamiento",
       "antigeno"
     ],
-    "summary": "El COVID-19 es causado por el virus SARS-CoV-2 y se transmite principalmente por vía respiratoria (aerosoles y gotículas). Síntomas frecuentes: fiebre, tos, dolor de garganta, malestar general, cefalea, pérdida de olfato"
+    "summary": "El COVID-19 es causado por el virus SARS-CoV-2 y se transmite principalmente por vía respiratoria (aerosoles y gotículas). Síntomas frecuentes: fiebre, tos, dol"
   },
   {
     "id": "emg-rcp-basico",
@@ -235,7 +235,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "necrosis",
       "picadura"
     ],
-    "summary": "La araña casera Loxosceles laeta ('araña violinista' o 'violonchista') vive dentro de las casas peruanas: rincones oscuros, detrás de cuadros y muebles, en ropa y zapatos guardados. Su mordedura causa loxoscelismo, una e"
+    "summary": "La araña casera Loxosceles laeta ('araña violinista' o 'violonchista') vive dentro de las casas peruanas: rincones oscuros, detrás de cuadros y muebles, en ropa"
   },
   {
     "id": "emg-huaico-indeci",
@@ -259,7 +259,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "lloclla",
       "chosica"
     ],
-    "summary": "ANTES (preparación): identificar con la familia las zonas seguras y rutas de evacuación señalizadas por el municipio/INDECI (partes altas, alejadas del cauce de quebradas y ríos). Preparar la MOCHILA DE EMERGENCIA: agua "
+    "summary": "ANTES (preparación): identificar con la familia las zonas seguras y rutas de evacuación señalizadas por el municipio/INDECI (partes altas, alejadas del cauce de"
   },
   {
     "id": "legal-constitucion",
@@ -303,7 +303,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "derechos del paciente",
       "confidencialidad"
     ],
-    "summary": "ATENCIÓN DE EMERGENCIA OBLIGATORIA (Art. 3, modificado por Ley N° 27604): toda persona tiene derecho a recibir atención médico-quirúrgica de emergencia en cualquier establecimiento de salud, público o privado, cuando est"
+    "summary": "ATENCIÓN DE EMERGENCIA OBLIGATORIA (Art. 3, modificado por Ley N° 27604): toda persona tiene derecho a recibir atención médico-quirúrgica de emergencia en cualq"
   },
   {
     "id": "legal-ley29733-datos",
@@ -326,7 +326,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "proteccion de datos",
       "biometrico"
     ],
-    "summary": "La Ley N° 29733 desarrolla el derecho fundamental a la protección de los datos personales (Constitución, Art. 2 inc. 6). Se aplica a todo tratamiento de datos en bancos de datos públicos o privados."
+    "summary": "La Ley N° 29733 desarrolla el derecho fundamental a la protección de los datos personales (Constitución, Art. 2 inc. 6). Se aplica a todo tratamiento de datos e"
   },
   {
     "id": "clima-enfen-nino",
@@ -352,7 +352,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "imarpe",
       "clima"
     ],
-    "summary": "La Comisión Multisectorial ENFEN (Estudio Nacional del Fenómeno El Niño) es el ente oficial peruano que monitorea y comunica el estado de El Niño y La Niña. Emite comunicados y boletines periódicos con niveles de alerta:"
+    "summary": "La Comisión Multisectorial ENFEN (Estudio Nacional del Fenómeno El Niño) es el ente oficial peruano que monitorea y comunica el estado de El Niño y La Niña. Emi"
   },
   {
     "id": "sismo-igp-monitoreo",
@@ -377,7 +377,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "simulacro",
       "placa de nazca"
     ],
-    "summary": "El Perú está en el Cinturón de Fuego del Pacífico: la placa de Nazca subduce bajo la placa Sudamericana, generando la mayor parte de los sismos del país. El IGP (Centro Sismológico Nacional) monitorea la actividad sísmic"
+    "summary": "El Perú está en el Cinturón de Fuego del Pacífico: la placa de Nazca subduce bajo la placa Sudamericana, generando la mayor parte de los sismos del país. El IGP"
   },
   {
     "id": "kipu-formatos-ia",
@@ -406,7 +406,7 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "gpu",
       "vllm"
     ],
-    "summary": "GGUF (llama.cpp / Ollama): formato binario de ggml para inferencia LOCAL en CPU/RAM (con offload opcional a GPU/Metal). Empaqueta pesos cuantizados (Q4_0, Q4_K_M, Q8_0…) y metadatos en un solo archivo. Ideal para laptops"
+    "summary": "GGUF (llama.cpp / Ollama): formato binario de ggml para inferencia LOCAL en CPU/RAM (con offload opcional a GPU/Metal). Empaqueta pesos cuantizados (Q4_0, Q4_K_"
   },
   {
     "id": "kipu-buenas-practicas",
@@ -479,5 +479,445 @@ export const KNOWLEDGE_BASE_INDEX: KnowledgeDocMeta[] = [
       "dijkstra"
     ],
     "summary": "Estructuras fundamentales y sus costos típicos (notación Big-O):"
+  },
+  {
+    "id": "minsa-vademecum-basico",
+    "title": "Uso racional de medicamentos frecuentes (vademécum básico)",
+    "source": "Formulario Nacional de Medicamentos Esenciales DIGEMID/MINSA + buenas prácticas clínicas",
+    "agents": [
+      "aya",
+      "sumaq"
+    ],
+    "keywords": [
+      "paracetamol",
+      "amoxicilina",
+      "ibuprofeno",
+      "omeprazol",
+      "metformina",
+      "losartan",
+      "dosis",
+      "sobredosis",
+      "medicamento",
+      "pastilla",
+      "receta"
+    ],
+    "summary": "PARACETAMOL: adultos 500 mg–1 g cada 6–8 h, máximo 4 g/día. Hepatotóxico en sobredosis; no combinar con otras presentaciones que lo contengan. En dengue probabl"
+  },
+  {
+    "id": "legal-proceso-civil-basico",
+    "title": "Proceso civil peruano: plazos y principios básicos",
+    "source": "Código Procesal Civil (D. Leg. N° 768 y modificatorias) — resumen orientativo",
+    "agents": [
+      "inti"
+    ],
+    "keywords": [
+      "demanda",
+      "plazo",
+      "notificacion",
+      "apelacion",
+      "juicio",
+      "proceso civil",
+      "abogado",
+      "juzgado",
+      "prueba",
+      "sentencia"
+    ],
+    "summary": "El proceso civil peruano se rige por principios de igualdad, contradicción, economía procesal y motivación de resoluciones. La demanda debe identificar partes, "
+  },
+  {
+    "id": "indeci-kit-emergencia",
+    "title": "Kit de emergencia familiar y evacuación (INDECI)",
+    "source": "INDECI — Preparación ante desastres / Guía familiar de emergencia",
+    "agents": [
+      "tupac",
+      "pacha",
+      "yaku"
+    ],
+    "keywords": [
+      "kit",
+      "emergencia",
+      "mochila",
+      "evacuacion",
+      "huaico",
+      "sismo",
+      "linterna",
+      "agua",
+      "documentos",
+      "punto de reunion"
+    ],
+    "summary": "Kit mínimo recomendado: agua (3 L/persona/día, ideal 3 días), alimentos no perecederos, linterna + pilas, radio a pilas, botiquín, medicamentos personales, silb"
+  },
+  {
+    "id": "senamhi-precipitacion-lectura",
+    "title": "Cómo leer precipitación y alerta hidrológica",
+    "source": "SENAMHI — Avisos meteorológicos / umbrales orientativos de lluvia",
+    "agents": [
+      "pacha",
+      "tupac",
+      "yaku"
+    ],
+    "keywords": [
+      "precipitacion",
+      "lluvia",
+      "mm",
+      "alerta",
+      "hidrologico",
+      "quebrada",
+      "rimac",
+      "senamhi",
+      "mapa",
+      "calor"
+    ],
+    "summary": "La precipitación se mide en milímetros (mm): 1 mm ≈ 1 L/m². Lluvia ligera <2.5 mm/h; moderada 2.5–10 mm/h; intensa >10 mm/h. En quebradas (p. ej. valle del Ríma"
+  },
+  {
+    "id": "legal-cpc-demanda-requisitos",
+    "title": "CPC: requisitos de la demanda y calificación",
+    "source": "Resumen MARU basado en Código Procesal Civil (D. Leg. N° 768 y modificatorias) — orientación general",
+    "agents": [
+      "inti"
+    ],
+    "keywords": [
+      "demanda",
+      "petitorio",
+      "fundamentos",
+      "medios probatorios",
+      "calificacion",
+      "inadmisible",
+      "improcedente",
+      "cpc"
+    ],
+    "summary": "En el proceso civil ordinario, la demanda suele identificar: juez competente, datos de las partes, petitorio claro, fundamentos de hecho y de derecho, y ofrecim"
+  },
+  {
+    "id": "legal-constitucion-derechos-basicos",
+    "title": "Constitución: dignidad, salud y derechos fundamentales (básico)",
+    "source": "Resumen MARU basado en Constitución Política del Perú (1993) — Arts. 1, 2, 7 y afines",
+    "agents": [
+      "inti",
+      "yaku",
+      "aya"
+    ],
+    "keywords": [
+      "constitucion",
+      "dignidad",
+      "derechos",
+      "salud",
+      "igualdad",
+      "debido proceso",
+      "libertad"
+    ],
+    "summary": "La Constitución reconoce la dignidad de la persona y un catálogo de derechos fundamentales (libertad, igualdad ante la ley, integridad, intimidad, debido proces"
+  },
+  {
+    "id": "legal-tramites-comunes-peru",
+    "title": "Trámites comunes en Perú: DNI, SUNARP, municipalidad (orientación)",
+    "source": "Resumen MARU basado en prácticas administrativas públicas peruanas (RENIEC, SUNARP, municipalidades) — no es texto oficial literal",
+    "agents": [
+      "inti",
+      "yaku"
+    ],
+    "keywords": [
+      "tramite",
+      "dni",
+      "reniec",
+      "sunarp",
+      "partida",
+      "licencia",
+      "municipalidad",
+      "poder",
+      "notaria"
+    ],
+    "summary": "Trámites frecuentes orientativos:"
+  },
+  {
+    "id": "legal-familia-alimentos-orientacion",
+    "title": "Familia: alimentos y tenencia (orientación general)",
+    "source": "Resumen MARU basado en Código Civil / Código de los Niños y Adolescentes — orientación, no asesoría",
+    "agents": [
+      "inti"
+    ],
+    "keywords": [
+      "alimentos",
+      "pension",
+      "tenencia",
+      "familia",
+      "menor",
+      "divorcio",
+      "violencia"
+    ],
+    "summary": "En materia de alimentos, el interés superior del niño/adolescente prima. Existen procesos de alimentos ante juzgados de paz letrado / familia según cuantía y re"
+  },
+  {
+    "id": "minsa-vademecum-cardio-meta",
+    "title": "Vademécum: cardiovascular y metabólico (resumen seguro)",
+    "source": "Resumen MARU alineado a Formulario Nacional / buenas prácticas DIGEMID-MINSA — no sustituye ficha técnica",
+    "agents": [
+      "aya",
+      "sumaq"
+    ],
+    "keywords": [
+      "losartan",
+      "enalapril",
+      "amlodipino",
+      "metformina",
+      "atorvastatina",
+      "furosemida",
+      "insulina",
+      "hipertension",
+      "diabetes"
+    ],
+    "summary": "Antihipertensivos frecuentes (losartán, enalapril, amlodipino): uso crónico bajo control; no suspender de golpe sin indicación. IECA puede causar tos seca."
+  },
+  {
+    "id": "minsa-vademecum-antiinfecciosos",
+    "title": "Vademécum: antiinfecciosos y uso racional",
+    "source": "Resumen MARU basado en uso racional de antimicrobianos / Formulario Nacional DIGEMID",
+    "agents": [
+      "aya"
+    ],
+    "keywords": [
+      "amoxicilina",
+      "azitromicina",
+      "ciprofloxacino",
+      "metronidazol",
+      "antibiotico",
+      "resistencia",
+      "penicilina"
+    ],
+    "summary": "Antibióticos (amoxicilina, azitromicina, cefalexina, ciprofloxacino, etc.): solo con indicación; completar esquema; no automedicarse. Alergia a penicilina contr"
+  },
+  {
+    "id": "minsa-vademecum-analgesia-gi",
+    "title": "Vademécum: analgesia, AINE e IBP",
+    "source": "Resumen MARU basado en buenas prácticas clínicas y Formulario Nacional",
+    "agents": [
+      "aya",
+      "sumaq"
+    ],
+    "keywords": [
+      "paracetamol",
+      "ibuprofeno",
+      "diclofenaco",
+      "omeprazol",
+      "pantoprazol",
+      "aine",
+      "gastritis",
+      "dolor"
+    ],
+    "summary": "Paracetamol: antipirético de elección en muchos contextos; máx. orientativo 4 g/día adulto; hepatotoxicidad en sobredosis."
+  },
+  {
+    "id": "minsa-vademecum-salud-mental",
+    "title": "Vademécum: salud mental (ISRS, benzodiacepinas) — precauciones",
+    "source": "Resumen MARU de precauciones clínicas habituales — no es guía de prescripción",
+    "agents": [
+      "aya",
+      "sumaq"
+    ],
+    "keywords": [
+      "sertralina",
+      "fluoxetina",
+      "alprazolam",
+      "clonazepam",
+      "ansiedad",
+      "depresion",
+      "benzodiacepina"
+    ],
+    "summary": "ISRS (sertralina, fluoxetina): efecto gradual; no suspender abruptamente sin indicación; vigilar interacciones."
+  },
+  {
+    "id": "indeci-sismo-familia",
+    "title": "Sismos: antes, durante y después (familia)",
+    "source": "Resumen MARU basado en recomendaciones INDECI / IGP de preparación sísmica",
+    "agents": [
+      "tupac",
+      "pacha",
+      "yaku"
+    ],
+    "keywords": [
+      "sismo",
+      "terremoto",
+      "evacuacion",
+      "punto de reunion",
+      "mochila",
+      "gas",
+      "igp",
+      "indeci"
+    ],
+    "summary": "Antes: identificar zonas seguras, fijar estanterías, tener kit y punto de reunión, conocer rutas."
+  },
+  {
+    "id": "emg-primeros-auxilios-basico",
+    "title": "Primeros auxilios básicos (hemorragia, quemadura, desmayo)",
+    "source": "Resumen MARU basado en principios de primeros auxilios AHA/Cruz Roja adoptados en capacitación ciudadana",
+    "agents": [
+      "tupac",
+      "aya"
+    ],
+    "keywords": [
+      "hemorragia",
+      "quemadura",
+      "desmayo",
+      "botiquin",
+      "vendaje",
+      "samu",
+      "auxilios"
+    ],
+    "summary": "Hemorragia externa: presión directa con gasa limpia; elevar si es posible; no retirar apósitos empapados — añadir encima. Quemaduras: agua tibia corriente; no r"
+  },
+  {
+    "id": "indeci-huaico-quebradas",
+    "title": "Huaicos en quebradas: alerta temprana ciudadana",
+    "source": "Resumen MARU basado en INDECI / COEN y experiencia de cuencas (p. ej. Rímac)",
+    "agents": [
+      "tupac",
+      "pacha"
+    ],
+    "keywords": [
+      "huaico",
+      "lloclla",
+      "quebrada",
+      "evacuacion",
+      "zona alta",
+      "chosica",
+      "rimac",
+      "coen"
+    ],
+    "summary": "Lluvias intensas en cabecera + suelos saturados elevan riesgo de huaico aunque en el valle ‘casi no llueva’. Señales: turbidez súbita, ruido de arrastre, avisos"
+  },
+  {
+    "id": "senamhi-avisos-colores",
+    "title": "Avisos SENAMHI: lectura orientativa de niveles",
+    "source": "Resumen MARU basado en lógica de avisos meteorológicos SENAMHI (consultar boletín oficial vigente)",
+    "agents": [
+      "pacha",
+      "tupac"
+    ],
+    "keywords": [
+      "aviso",
+      "senamhi",
+      "naranja",
+      "rojo",
+      "amarillo",
+      "lluvia",
+      "viento",
+      "temperatura"
+    ],
+    "summary": "Los avisos meteorológicos suelen escalar por impacto potencial (amarillo → naranja → rojo). MARU debe remitir al boletín/aviso oficial del día y no inventar umb"
+  },
+  {
+    "id": "clima-nino-costero-ciudadano",
+    "title": "Niño costero / ENFEN: qué vigilar como ciudadano",
+    "source": "Resumen MARU basado en comunicados ENFEN (IMARPE, SENAMHI, IGP, et al.)",
+    "agents": [
+      "pacha",
+      "yaku",
+      "tupac"
+    ],
+    "keywords": [
+      "nino",
+      "enfen",
+      "tssm",
+      "lluvia",
+      "norte",
+      "temperatura mar"
+    ],
+    "summary": "El fenómeno El Niño / Niño costero se monitorea por anomalías de temperatura superficial del mar y patrones de lluvia. Comunicados ENFEN informan estados de vig"
+  },
+  {
+    "id": "yaku-geografia-regiones",
+    "title": "Geografía del Perú: costa, sierra y selva",
+    "source": "Resumen MARU de geografía escolar/cultural peruana (INEI / textos educativos de referencia)",
+    "agents": [
+      "yaku",
+      "pacha"
+    ],
+    "keywords": [
+      "costa",
+      "sierra",
+      "selva",
+      "andes",
+      "amazonia",
+      "pacifico",
+      "regiones",
+      "geografia"
+    ],
+    "summary": "El Perú se organiza tradicionalmente en costa (desierto costero y llanuras), sierra (Andes, altiplanos, valles interandinos) y selva (alta y baja Amazonía). La "
+  },
+  {
+    "id": "yaku-historia-breve",
+    "title": "Historia breve del Perú: hitos para conversación",
+    "source": "Resumen MARU de hitos históricos de dominio público (periodización escolar)",
+    "agents": [
+      "yaku"
+    ],
+    "keywords": [
+      "inca",
+      "virreinato",
+      "independencia",
+      "republica",
+      "tahuantinsuyo",
+      "historia",
+      "cusco"
+    ],
+    "summary": "Hitos orientativos: culturas prehispánicas; Tahuantinsuyo (Cusco); conquista y Virreinato del Perú; independencia (siglo XIX); vida republicana con ciclos polít"
+  },
+  {
+    "id": "yaku-cultura-quechua-basico",
+    "title": "Cultura andina y quechua: nociones básicas",
+    "source": "Resumen MARU de nociones culturales abiertas (lengua, ayni, pachamama) — no es glosario oficial MINEDU",
+    "agents": [
+      "yaku",
+      "sumaq"
+    ],
+    "keywords": [
+      "quechua",
+      "ayni",
+      "pachamama",
+      "runasimi",
+      "andino",
+      "comunidad",
+      "traduccion"
+    ],
+    "summary": "El runasimi (quechua) agrupa variedades; saludos y fórmulas de respeto varían por región. Conceptos frecuentes en diálogo intercultural: ayni (reciprocidad), pa"
+  },
+  {
+    "id": "kipu-ollama-local",
+    "title": "Ollama y modelos locales en MARU",
+    "source": "Resumen MARU basado en documentación pública de Ollama + arquitectura MARU OS",
+    "agents": [
+      "kipu"
+    ],
+    "keywords": [
+      "ollama",
+      "modelo",
+      "gguf",
+      "local",
+      "ram",
+      "gemma",
+      "llama",
+      "api"
+    ],
+    "summary": "MARU puede enrutar chat a modelos locales vía Ollama (API HTTP). Formato habitual de pesos: GGUF/quantizations. La RAM disponible limita el tamaño del modelo."
+  },
+  {
+    "id": "kipu-rag-offline",
+    "title": "RAG offline: bóveda + base de conocimiento",
+    "source": "Resumen MARU de la arquitectura interna (knowledge_base + document_vault)",
+    "agents": [
+      "kipu",
+      "inti"
+    ],
+    "keywords": [
+      "rag",
+      "embeddings",
+      "qdrant",
+      "vault",
+      "offline",
+      "chunks",
+      "busqueda"
+    ],
+    "summary": "MARU combina: (1) base de conocimiento embebida offline con scoring léxico; (2) bóveda documental del usuario (PDF/texto) con chunks; (3) opcionalmente Qdrant c"
   }
 ];

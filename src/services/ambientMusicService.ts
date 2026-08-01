@@ -1,9 +1,9 @@
 /**
  * Música ambiente local generada con Web Audio (sin archivos externos).
- * Capas mezclables: río, aves, cascada.
+ * Capas: río, aves, cascada, ruido blanco, aves nocturnas.
  */
 
-export type AmbientLayerId = 'river' | 'birds' | 'waterfall';
+export type AmbientLayerId = 'river' | 'birds' | 'waterfall' | 'whitenoise' | 'nightbirds';
 
 type LayerNodes = {
   gain: GainNode;
@@ -18,7 +18,9 @@ class AmbientMusicEngine {
   private volumes: Record<AmbientLayerId, number> = {
     river: 0.45,
     birds: 0.35,
-    waterfall: 0.25
+    waterfall: 0.25,
+    whitenoise: 0.15,
+    nightbirds: 0.2
   };
   private masterVolume = 0.55;
 
@@ -92,10 +94,10 @@ class AmbientMusicEngine {
     };
   }
 
-  private startBirdsLayer(volume: number) {
+  private startBirdsLayer(id: 'birds' | 'nightbirds', volume: number, pitchRange: [number, number]) {
     const ctx = this.ensureCtx();
     if (!this.master) return;
-    this.stopLayer('birds');
+    this.stopLayer(id);
 
     const gain = ctx.createGain();
     gain.gain.value = volume;
@@ -107,23 +109,23 @@ class AmbientMusicEngine {
       const osc = this.ctx.createOscillator();
       const g = this.ctx.createGain();
       const now = this.ctx.currentTime;
-      osc.type = 'sine';
-      const f0 = 1800 + Math.random() * 2200;
+      osc.type = id === 'nightbirds' ? 'triangle' : 'sine';
+      const f0 = pitchRange[0] + Math.random() * (pitchRange[1] - pitchRange[0]);
       osc.frequency.setValueAtTime(f0, now);
       osc.frequency.exponentialRampToValueAtTime(f0 * (0.7 + Math.random() * 0.5), now + 0.12);
       g.gain.setValueAtTime(0.0001, now);
-      g.gain.exponentialRampToValueAtTime(0.18, now + 0.02);
-      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+      g.gain.exponentialRampToValueAtTime(id === 'nightbirds' ? 0.12 : 0.18, now + 0.02);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + (id === 'nightbirds' ? 0.22 : 0.14));
       osc.connect(g);
       g.connect(gain);
       osc.start(now);
-      osc.stop(now + 0.16);
-      const wait = 400 + Math.random() * 2200;
+      osc.stop(now + 0.25);
+      const wait = (id === 'nightbirds' ? 900 : 400) + Math.random() * (id === 'nightbirds' ? 2800 : 2200);
       window.setTimeout(chirp, wait);
     };
     chirp();
 
-    this.layers.birds = {
+    this.layers[id] = {
       gain,
       stop: () => {
         alive = false;
@@ -146,7 +148,9 @@ class AmbientMusicEngine {
     if (ctx.state === 'suspended') await ctx.resume();
     this.startNoiseLayer('river', 'lowpass', 720, 0.7, this.volumes.river);
     this.startNoiseLayer('waterfall', 'bandpass', 1400, 0.9, this.volumes.waterfall);
-    this.startBirdsLayer(this.volumes.birds);
+    this.startNoiseLayer('whitenoise', 'highpass', 200, 0.5, this.volumes.whitenoise);
+    this.startBirdsLayer('birds', this.volumes.birds, [1800, 4000]);
+    this.startBirdsLayer('nightbirds', this.volumes.nightbirds, [600, 1400]);
     this.playing = true;
   }
 

@@ -227,10 +227,39 @@ export class StorageService {
   }
 
   private static buildInitialGraph(p: UserProfile, h: HealthProfile, l: LocationProfile) {
+    // Preserve secondary domain nodes (notes, habits, kipu, mail, docs…) when core profile rebuilds
+    const existing = (() => {
+      try {
+        const rawN = localStorage.getItem(STORAGE_KEYS.NODES);
+        const rawE = localStorage.getItem(STORAGE_KEYS.EDGES);
+        if (!rawN || !rawE) return { nodes: [] as KnowledgeNode[], edges: [] as KnowledgeEdge[] };
+        return { nodes: JSON.parse(rawN) as KnowledgeNode[], edges: JSON.parse(rawE) as KnowledgeEdge[] };
+      } catch {
+        return { nodes: [] as KnowledgeNode[], edges: [] as KnowledgeEdge[] };
+      }
+    })();
+    const CORE_PREFIXES = [
+      'node-user',
+      'node-loc',
+      'node-risk',
+      'node-allergy-',
+      'node-med-',
+      'node-cond-',
+      'node-blood',
+      'node-emerg-contact'
+    ];
+    const isCore = (id: string) =>
+      CORE_PREFIXES.some((pre) => (pre.endsWith('-') ? id.startsWith(pre) : id === pre));
+
     const nodes: KnowledgeNode[] = [
       { id: 'node-user', label: p.name, type: 'user', details: `${p.age} años, ${p.occupation}` },
       { id: 'node-loc', label: l.city, type: 'location', details: `${l.district}, ${l.country}` },
-      { id: 'node-risk', label: 'Riesgo Huaico', type: 'risk', details: 'Chosica (85% Alerta)' }
+      {
+        id: 'node-risk',
+        label: `Riesgo · ${l.city}`,
+        type: 'risk',
+        details: `${l.district || l.city}, ${l.country}`
+      }
     ];
     const edges: KnowledgeEdge[] = [
       { id: 'e-1', source: 'node-user', target: 'node-loc', label: 'VIVE_EN' },
@@ -245,9 +274,52 @@ export class StorageService {
 
     h.currentMedications.forEach((med, idx) => {
       const nid = `node-med-${idx}`;
-      nodes.push({ id: nid, label: med.name, type: 'medication', details: `${med.dose} ${med.frequency}` });
+      nodes.push({
+        id: nid,
+        label: med.name,
+        type: 'medication',
+        details: `${med.dose} ${med.frequency}${med.purpose ? ` · ${med.purpose}` : ''}`
+      });
       edges.push({ id: `e-m-${idx}`, source: 'node-user', target: nid, label: 'TOMA_MEDICAMENTO' });
     });
+
+    h.chronicConditions.forEach((cond, idx) => {
+      const nid = `node-cond-${idx}`;
+      nodes.push({ id: nid, label: cond, type: 'condition', details: 'Condición crónica / activa' });
+      edges.push({ id: `e-c-${idx}`, source: 'node-user', target: nid, label: 'TIENE_CONDICION' });
+    });
+
+    if (h.bloodType) {
+      nodes.push({ id: 'node-blood', label: `Grupo ${h.bloodType}`, type: 'condition', details: 'Tipo sanguíneo' });
+      edges.push({ id: 'e-blood', source: 'node-user', target: 'node-blood', label: 'TIPO_SANGRE' });
+    }
+
+    if (h.emergencyContact) {
+      nodes.push({
+        id: 'node-emerg-contact',
+        label: h.emergencyContact.slice(0, 48),
+        type: 'preference',
+        details: 'Contacto de emergencia'
+      });
+      edges.push({
+        id: 'e-emerg-contact',
+        source: 'node-user',
+        target: 'node-emerg-contact',
+        label: 'CONTACTO_EMERGENCIA'
+      });
+    }
+
+    // Keep non-core domain nodes/edges from previous graph
+    for (const n of existing.nodes) {
+      if (!isCore(n.id) && !nodes.some((x) => x.id === n.id)) nodes.push(n);
+    }
+    const nodeIds = new Set(nodes.map((n) => n.id));
+    for (const e of existing.edges) {
+      if (isCore(e.source) && isCore(e.target)) continue; // rebuilt above
+      if (nodeIds.has(e.source) && nodeIds.has(e.target) && !edges.some((x) => x.id === e.id)) {
+        edges.push(e);
+      }
+    }
 
     localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(nodes));
     localStorage.setItem(STORAGE_KEYS.EDGES, JSON.stringify(edges));
@@ -256,6 +328,44 @@ export class StorageService {
 
   private static updateGraphFromProfile(p: UserProfile, h: HealthProfile, l: LocationProfile) {
     this.buildInitialGraph(p, h, l);
+  }
+
+  /** Replace all nodes/edges whose id starts with `prefix` (e.g. node-habit-). */
+  static replaceNodesByPrefix(
+    prefix: string,
+    newNodes: KnowledgeNode[],
+    newEdges: KnowledgeEdge[]
+  ): void {
+    const { nodes, edges } = this.getKnowledgeGraph();
+    const matchesPrefix = (id: string) => id === prefix || id.startsWith(prefix);
+    const keptNodes = nodes.filter((n) => !matchesPrefix(n.id));
+    const removedIds = new Set(nodes.filter((n) => matchesPrefix(n.id)).map((n) => n.id));
+    const keptEdges = edges.filter(
+      (e) => !removedIds.has(e.source) && !removedIds.has(e.target) && !matchesPrefix(e.id)
+    );
+
+    const mergedNodes = [...keptNodes];
+    for (const n of newNodes) {
+      if (!mergedNodes.some((x) => x.id === n.id)) mergedNodes.push(n);
+    }
+    if (!mergedNodes.some((n) => n.id === 'node-user')) {
+      const p = this.getProfile();
+      mergedNodes.unshift({
+        id: 'node-user',
+        label: p.name,
+        type: 'user',
+        details: `${p.age} años, ${p.occupation}`
+      });
+    }
+
+    const idSet = new Set(mergedNodes.map((n) => n.id));
+    const mergedEdges = [
+      ...keptEdges.filter((e) => idSet.has(e.source) && idSet.has(e.target)),
+      ...newEdges.filter((e) => idSet.has(e.source) && idSet.has(e.target))
+    ];
+
+    localStorage.setItem(STORAGE_KEYS.NODES, JSON.stringify(mergedNodes));
+    localStorage.setItem(STORAGE_KEYS.EDGES, JSON.stringify(mergedEdges));
   }
 
   static getCalendarEvents(): CalendarEvent[] {

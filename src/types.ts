@@ -21,13 +21,38 @@ export interface UserProfile {
   personalityDesc: string;
   communicationTone: CommunicationTone;
   customContext?: string;
+  /** Foto de perfil (data URL) */
+  avatarDataUrl?: string;
 }
+
+export type HabitFrequencyMode = 'daily' | 'weekdays' | 'custom_days' | 'weekly' | 'always';
+export type MedForm = 'pastilla' | 'jarabe' | 'gotas' | 'inyeccion' | 'crema' | 'otro';
+export type MedDoseUnit = 'mg' | 'ml' | 'g' | 'mcg' | 'UI' | 'cucharada' | 'comp' | 'gota';
 
 export interface Medication {
   id: string;
   name: string;
   dose: string;
   frequency: string;
+  /** Enfermedad / bloque al que pertenece */
+  condition?: string;
+  /** Horas de toma HH:mm */
+  scheduleTimes?: string[];
+  startDate?: string;
+  endDate?: string;
+  /** Días de duración del tratamiento */
+  durationDays?: number;
+  /** Foto de receta (data URL), obligatoria si hay alerta de sobredosis */
+  recipePhotoDataUrl?: string;
+  /** Unidades por toma (para alerta de exceso) */
+  pillsPerDose?: number;
+  form?: MedForm;
+  doseAmount?: number;
+  doseUnit?: MedDoseUnit;
+  /** Para qué sirve / referencia */
+  purpose?: string;
+  frequencyMode?: HabitFrequencyMode;
+  lastTakenAt?: string;
 }
 
 export interface HealthProfile {
@@ -36,6 +61,8 @@ export interface HealthProfile {
   chronicConditions: string[];
   bloodType: string;
   emergencyContact: string;
+  /** Teléfono WhatsApp del contacto (solo dígitos, con código país) */
+  emergencyWhatsApp?: string;
 }
 
 export interface LocationProfile {
@@ -50,6 +77,10 @@ export interface Habit {
   title: string;
   time: string;
   frequency: string;
+  /** Modo de recurrencia editable */
+  frequencyMode?: HabitFrequencyMode;
+  /** Días de la semana 0=Dom … 6=Sáb cuando frequencyMode = custom_days */
+  daysOfWeek?: number[];
   linkedMedication?: string;
   completed: boolean;
   streak: number;
@@ -108,10 +139,26 @@ export interface ChatMessage {
   gmailDraftNotification?: GmailDraftNotification;
 }
 
+export type KnowledgeNodeType =
+  | 'user'
+  | 'allergy'
+  | 'medication'
+  | 'condition'
+  | 'location'
+  | 'risk'
+  | 'agent'
+  | 'note'
+  | 'event'
+  | 'habit'
+  | 'project'
+  | 'document'
+  | 'mail'
+  | 'preference';
+
 export interface KnowledgeNode {
   id: string;
   label: string;
-  type: 'user' | 'allergy' | 'medication' | 'condition' | 'location' | 'risk' | 'agent';
+  type: KnowledgeNodeType;
   details?: string;
 }
 
@@ -181,14 +228,21 @@ export interface AppSettings {
   autoAgentRouting: boolean;
   themeMode: 'auto' | 'day' | 'night';
   privacyLocalOnly: boolean;
+  /** Personalización de colores de interfaz */
+  uiAccent?: string;
+  uiPrimary?: string;
+  uiBg?: string;
 }
 
 export interface Note {
   id: string;
   title: string;
-  content: string; // Markdown text
+  content: string; // Markdown text o JSON de hoja
   createdAt: string;
   updatedAt: string;
+  kind?: 'text' | 'sheet';
+  /** Matriz de celdas cuando kind = sheet */
+  sheet?: string[][];
 }
 
 export interface GmailDraftNotification {

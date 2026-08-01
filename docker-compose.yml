@@ -71,6 +71,8 @@ services:
       - NEO4J_USER=neo4j
       - NEO4J_PASSWORD=maruospassword
       - OLLAMA_BASE_URL=http://host.docker.internal:11434
+      # Opcional: URL de otra instancia MARU (…/api) o JSON export para fusionar KB
+      - MARU_KB_REMOTE_URL=${MARU_KB_REMOTE_URL:-}
     volumes:
       - ./backend/app:/app/app
     depends_on:

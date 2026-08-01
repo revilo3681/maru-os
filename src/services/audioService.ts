@@ -89,10 +89,14 @@ export class AudioService {
     return chosen;
   }
 
+  /** Flag: reiniciar reconocimiento al terminar (dictado continuo) */
+  private static keepListening = false;
+
   static initSpeechRecognition(
     onResult: (text: string) => void,
     onError?: (err: any) => void,
-    onEnd?: () => void
+    onEnd?: () => void,
+    options?: { continuous?: boolean }
   ) {
     if (typeof window === 'undefined') return null;
     const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -103,25 +107,40 @@ export class AudioService {
 
     try {
       this.recognition = new SpeechRecognition();
-      this.recognition.continuous = false;
+      this.recognition.continuous = options?.continuous ?? false;
       this.recognition.interimResults = true;
       this.recognition.lang = 'es-PE';
 
       this.recognition.onresult = (event: any) => {
-        let transcript = '';
-        for (let i = event.resultIndex; i < event.results.length; i++) {
-          transcript += event.results[i][0].transcript;
+        let finalText = '';
+        let interimText = '';
+        for (let i = 0; i < event.results.length; i++) {
+          const piece = event.results[i][0].transcript;
+          if (event.results[i].isFinal) finalText += piece;
+          else interimText += piece;
         }
-        onResult(transcript);
+        // Entrega el texto acumulado de la sesión (finales + interim actual)
+        onResult((finalText + (interimText ? (finalText ? ' ' : '') + interimText : '')).trim());
       };
 
       this.recognition.onerror = (err: any) => {
+        // "no-speech" / "aborted" no deben matar el dictado continuo
+        if (err?.error === 'no-speech' || err?.error === 'aborted') return;
         console.error('Speech recognition error:', err);
+        this.keepListening = false;
         this.stopAudioLevelPulse();
         if (onError) onError(err);
       };
 
       this.recognition.onend = () => {
+        if (this.keepListening) {
+          try {
+            this.recognition.start();
+            return;
+          } catch {
+            /* fall through */
+          }
+        }
         this.stopAudioLevelPulse();
         if (onEnd) onEnd();
       };
@@ -131,6 +150,27 @@ export class AudioService {
       console.error('Failed to init speech recognition:', e);
       return null;
     }
+  }
+
+  /**
+   * Dictado en vivo: redacta lo que se habla en el input (Web Speech continuo).
+   * Preferido para el micrófono del chat.
+   */
+  static startLiveDictation(
+    onResult: (text: string) => void,
+    onError?: (err: unknown) => void,
+    onEnd?: () => void
+  ): boolean {
+    this.stopListening();
+    this.keepListening = true;
+    const recognition = this.initSpeechRecognition(onResult, onError, onEnd, { continuous: true });
+    if (!recognition) {
+      this.keepListening = false;
+      if (onError) onError(new Error('STT no disponible en este navegador'));
+      return false;
+    }
+    this.startListening();
+    return true;
   }
 
   static startListening() {
@@ -146,6 +186,7 @@ export class AudioService {
   }
 
   static stopListening() {
+    this.keepListening = false;
     if (this.mediaRecorder && this.mediaRecorder.state !== 'inactive') {
       try {
         this.mediaRecorder.stop();
@@ -159,6 +200,7 @@ export class AudioService {
       } catch (e) {
         console.warn('Error stopping recognition:', e);
       }
+      this.recognition = null;
     }
     this.stopAudioLevelPulse();
   }

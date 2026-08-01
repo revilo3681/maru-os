@@ -91,12 +91,12 @@ export const Sidebar: React.FC<SidebarProps> = ({
     }
   ];
   const specialistItems = [
-    { id: 'health', label: 'Salud · Aya/Sumaq', icon: HeartPulse, agents: ['aya', 'sumaq'] as AgentId[] },
-    { id: 'legal', label: 'Legal · Inti', icon: Scale, agents: ['inti'] as AgentId[] },
-    { id: 'kipu', label: 'Desarrollo · Kipu', icon: Code2, agents: ['kipu'] as AgentId[] },
-    { id: 'pacha', label: 'Clima · Pacha', icon: CloudRain, agents: ['pacha'] as AgentId[] },
-    { id: 'emergency', label: 'Emergencia · Tupac', icon: ShieldAlert, agents: ['tupac'] as AgentId[] },
-    { id: 'yaku', label: 'Perú · Yaku', icon: Landmark, agents: ['yaku'] as AgentId[] }
+    { id: 'health', label: 'Aya / Sumaq — Salud', icon: HeartPulse, agents: ['aya', 'sumaq'] as AgentId[] },
+    { id: 'legal', label: 'Inti — Legal', icon: Scale, agents: ['inti'] as AgentId[] },
+    { id: 'kipu', label: 'Kipu — Desarrollo', icon: Code2, agents: ['kipu'] as AgentId[] },
+    { id: 'pacha', label: 'Pacha — Clima', icon: CloudRain, agents: ['pacha'] as AgentId[] },
+    { id: 'emergency', label: 'Tupac — Emergencia', icon: ShieldAlert, agents: ['tupac'] as AgentId[] },
+    { id: 'yaku', label: 'Yaku — Perú', icon: Landmark, agents: ['yaku'] as AgentId[] }
   ].filter((item) => item.agents.some((a) => enabledAgents.includes(a)));
 
   const renderItem = (item: { id: string; label: string; icon: React.ComponentType<{ size?: number; className?: string }> }) => {

@@ -1,0 +1,73 @@
+{
+  "generatedBy": "scripts/generate_kb_pdfs.py",
+  "count": 6,
+  "pdfs": [
+    {
+      "id": "aya-medicamentos",
+      "title": "Aya — Salud y medicamentos (resumen MARU)",
+      "filename": "aya-medicamentos.pdf",
+      "url": "/kb/pdfs/aya-medicamentos.pdf",
+      "agents": [
+        "aya",
+        "sumaq"
+      ],
+      "documentCount": 14,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    },
+    {
+      "id": "inti-judicial",
+      "title": "Inti — Legal y trámites (resumen MARU)",
+      "filename": "inti-judicial.pdf",
+      "url": "/kb/pdfs/inti-judicial.pdf",
+      "agents": [
+        "inti"
+      ],
+      "documentCount": 10,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    },
+    {
+      "id": "tupac-emergencia",
+      "title": "Tupac — Emergencias e INDECI (resumen MARU)",
+      "filename": "tupac-emergencia.pdf",
+      "url": "/kb/pdfs/tupac-emergencia.pdf",
+      "agents": [
+        "tupac"
+      ],
+      "documentCount": 14,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    },
+    {
+      "id": "pacha-clima",
+      "title": "Pacha — Clima y riesgo hidrológico (resumen MARU)",
+      "filename": "pacha-clima.pdf",
+      "url": "/kb/pdfs/pacha-clima.pdf",
+      "agents": [
+        "pacha"
+      ],
+      "documentCount": 10,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    },
+    {
+      "id": "yaku-peru",
+      "title": "Yaku — Perú, cultura e inclusión (resumen MARU)",
+      "filename": "yaku-peru.pdf",
+      "url": "/kb/pdfs/yaku-peru.pdf",
+      "agents": [
+        "yaku"
+      ],
+      "documentCount": 14,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    },
+    {
+      "id": "kipu-desarrollo",
+      "title": "Kipu — Desarrollo local e IA (resumen MARU)",
+      "filename": "kipu-desarrollo.pdf",
+      "url": "/kb/pdfs/kipu-desarrollo.pdf",
+      "agents": [
+        "kipu"
+      ],
+      "documentCount": 10,
+      "disclaimer": "Resumen MARU offline — no sustituye fuentes oficiales completas."
+    }
+  ]
+}

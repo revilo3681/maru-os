@@ -1,6 +1,7 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { StorageService } from './services/storageService';
 import { AudioService } from './services/audioService';
+import { applyThemeMode } from './services/themeService';
 import { EngineConfigProvider, useEngineConfig } from './context/EngineConfigContext';
 import { AGENT_PANEL_TAB } from './data/agentVoices';
 import { AgentId, UserProfile, HealthProfile, LocationProfile } from './types';
@@ -30,6 +31,11 @@ import { EmergencyOverlay } from './components/emergency/EmergencyOverlay';
  * Saludo hablado de bienvenida (item 17): variantes cortas según la hora del día
  * y, si hay, los hábitos pendientes. Solo voz, sin banner en pantalla.
  */
+const GREETING_TS_KEY = 'maru_last_greeting_at';
+const TIP_TS_KEY = 'maru_last_kind_tip_at';
+const GREETING_COOLDOWN_MS = 10 * 60 * 1000;
+const TIP_INTERVAL_MS = 5 * 60 * 1000;
+
 function buildWelcomeGreeting(name: string, pendingHabits: number): string {
   const hour = new Date().getHours();
   let variants: string[];
@@ -61,6 +67,18 @@ function buildWelcomeGreeting(name: string, pendingHabits: number): string {
   return greeting;
 }
 
+function buildKindTip(name: string): string {
+  const tips = [
+    `${name}, un vaso de agua ahora también es autocuidado.`,
+    `Respira hondo unos segundos. Estoy aquí contigo.`,
+    `Pequeños pasos cuentan. Hoy también vale celebrarlos.`,
+    `Si puedes, estira el cuello y los hombros un momento.`,
+    `Tu memoria local te guarda. Tú solo fluye.`,
+    `Un recordatorio amable: revisa tu pastillero si toca.`
+  ];
+  return tips[Math.floor(Math.random() * tips.length)];
+}
+
 function AppShell() {
   const [currentTab, setCurrentTab] = useState<string>('landing');
   const [activeAgentId, setActiveAgentId] = useState<AgentId>('aya');
@@ -81,6 +99,26 @@ function AppShell() {
     }
   }, [currentTab]);
 
+  // Tema claro/oscuro (data-theme) + colores personalizados
+  useEffect(() => {
+    applyThemeMode(settings.themeMode);
+    const root = document.documentElement;
+    if (settings.uiPrimary) root.style.setProperty('--maru-primary', settings.uiPrimary);
+    if (settings.uiAccent) root.style.setProperty('--maru-accent', settings.uiAccent);
+    // Solo aplicar fondo custom en modo claro para no anular el tema oscuro
+    if (settings.uiBg && settings.themeMode !== 'night') {
+      root.style.setProperty('--maru-bg', settings.uiBg);
+    }
+  }, [settings.themeMode, settings.uiPrimary, settings.uiAccent, settings.uiBg]);
+
+  useEffect(() => {
+    if (settings.themeMode !== 'auto') return;
+    const mq = window.matchMedia('(prefers-color-scheme: dark)');
+    const onChange = () => applyThemeMode('auto');
+    mq.addEventListener('change', onChange);
+    return () => mq.removeEventListener('change', onChange);
+  }, [settings.themeMode]);
+
   // Si el agente activo o su panel fueron desactivados, redirigir
   useEffect(() => {
     if (!enabledAgents.includes(activeAgentId)) {
@@ -94,29 +132,42 @@ function AppShell() {
     if (currentTab === 'habits') setCurrentTab('calendar');
   }, [enabledAgents, activeAgentId, currentTab]);
 
-  // ── Saludo hablado al entrar a la app (una sola vez por entrada) ──
-  const hasGreetedRef = useRef(false);
+  // ── Saludo: máximo cada 10 min; tips amables cada 5 min en sesión ──
   const isInAppShell = currentTab !== 'landing' && currentTab !== 'onboarding';
 
   useEffect(() => {
-    if (!isInAppShell) {
-      // Al volver a la landing (logout), se rearma el saludo para la próxima entrada
-      hasGreetedRef.current = false;
-      return;
-    }
-    if (hasGreetedRef.current) return; // no repetir en cambios de pestaña
-    hasGreetedRef.current = true;
-
-    // Respetar el ajuste de lectura de voz: si está apagado, silencio total
+    if (!isInAppShell) return;
     if (!StorageService.getSettings().voiceReadoutEnabled) return;
 
     const name = StorageService.getProfile().name || 'Oliver';
+    const last = Number(localStorage.getItem(GREETING_TS_KEY) || 0);
+    const now = Date.now();
+    if (now - last < GREETING_COOLDOWN_MS) return;
+
     const pendingHabits = StorageService.getHabits().filter((h) => !h.completed).length;
     const greeting = buildWelcomeGreeting(name, pendingHabits);
-
-    // Pequeña espera para que el shell termine de montar antes de hablar
-    const timer = setTimeout(() => AudioService.speakGreeting(greeting, 'aya'), 900);
+    const timer = setTimeout(() => {
+      AudioService.speakGreeting(greeting, 'aya');
+      localStorage.setItem(GREETING_TS_KEY, String(Date.now()));
+    }, 900);
     return () => clearTimeout(timer);
+  }, [isInAppShell]);
+
+  useEffect(() => {
+    if (!isInAppShell) return;
+    if (!StorageService.getSettings().voiceReadoutEnabled) return;
+
+    const tipTimer = window.setInterval(() => {
+      if (document.hidden) return;
+      if (!StorageService.getSettings().voiceReadoutEnabled) return;
+      const lastTip = Number(localStorage.getItem(TIP_TS_KEY) || 0);
+      if (Date.now() - lastTip < TIP_INTERVAL_MS) return;
+      const name = StorageService.getProfile().name || 'Oliver';
+      AudioService.speakGreeting(buildKindTip(name), 'sumaq');
+      localStorage.setItem(TIP_TS_KEY, String(Date.now()));
+    }, TIP_INTERVAL_MS);
+
+    return () => window.clearInterval(tipTimer);
   }, [isInAppShell]);
 
   const refreshUserData = () => {
@@ -187,6 +238,9 @@ function AppShell() {
                 userProfile={userProfile}
                 healthProfile={healthProfile}
                 locationProfile={locationProfile}
+                settings={settings}
+                onProfileChange={setUserProfile}
+                onSettingsChange={setSettings}
                 onNavigateToChat={_navigateToChat}
                 onTriggerEmergency={() => setIsEmergencyOpen(true)}
               />

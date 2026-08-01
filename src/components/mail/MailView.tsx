@@ -1,8 +1,10 @@
 import React, { useMemo, useState } from 'react';
 import {
-  Inbox, FileEdit, Send, Star, Trash2, Search, Bot, PenSquare, RefreshCw
+  Inbox, FileEdit, Send, Star, Trash2, Search, Bot, PenSquare, RefreshCw, Save, ClipboardPaste
 } from 'lucide-react';
 import { ApiService } from '../../services/apiService';
+import { StorageService } from '../../services/storageService';
+import { syncMailDraft } from '../../services/knowledgeSync';
 
 type Folder = 'inbox' | 'drafts' | 'sent' | 'starred';
 
@@ -94,6 +96,10 @@ export const MailView: React.FC = () => {
   const [draftBody, setDraftBody] = useState('');
   const [aiHint, setAiHint] = useState('');
   const [sending, setSending] = useState(false);
+  const [aiBusy, setAiBusy] = useState(false);
+  const [editingDraftId, setEditingDraftId] = useState<string | null>(null);
+  const [pasteRaw, setPasteRaw] = useState('');
+  const [showPaste, setShowPaste] = useState(false);
   const gmailEmail = localStorage.getItem('maru_gmail_email') || '';
   const gmailAppPass = localStorage.getItem('maru_gmail_app_pass') || '';
   const mailConfigured = Boolean(gmailEmail && gmailAppPass);
@@ -121,8 +127,14 @@ export const MailView: React.FC = () => {
   const selected = mails.find((m) => m.id === selectedId) || null;
 
   const openMail = (id: string) => {
+    const mail = mails.find((m) => m.id === id);
+    if (mail?.folder === 'drafts') {
+      openDraftForEdit(mail);
+      return;
+    }
     setSelectedId(id);
     setComposing(false);
+    setEditingDraftId(null);
     persist(mails.map((m) => (m.id === id ? { ...m, read: true } : m)));
   };
 
@@ -136,8 +148,49 @@ export const MailView: React.FC = () => {
     setSelectedId(next[0]?.id || null);
   };
 
+  const saveAsDraft = () => {
+    if (!draftTo.trim() && !draftSubject.trim() && !draftBody.trim()) {
+      setAiHint('Escribe al menos un destinatario, asunto o mensaje para guardar el borrador.');
+      return;
+    }
+    const id = editingDraftId || `draft-${Date.now()}`;
+    const draft: MailMessage = {
+      id,
+      folder: 'drafts',
+      from: gmailEmail || 'tu@maru.local',
+      to: draftTo.trim() || '(sin destinatario)',
+      subject: draftSubject.trim() || '(sin asunto)',
+      preview: draftBody.slice(0, 80) || '(vacío)',
+      body: draftBody,
+      date: 'Borrador',
+      read: true,
+      starred: false
+    };
+    const without = mails.filter((m) => m.id !== id);
+    persist([draft, ...without]);
+    syncMailDraft(`Borrador de correo: «${draft.subject}» → ${draft.to}`, draft.subject);
+    setEditingDraftId(id);
+    setComposing(false);
+    setFolder('drafts');
+    setSelectedId(id);
+    setAiHint('Borrador guardado. Puedes continuar después desde Borradores.');
+  };
+
+  const openDraftForEdit = (mail: MailMessage) => {
+    setComposing(true);
+    setEditingDraftId(mail.id);
+    setDraftTo(mail.to === '(sin destinatario)' ? '' : mail.to);
+    setDraftSubject(mail.subject === '(sin asunto)' ? '' : mail.subject);
+    setDraftBody(mail.body);
+    setSelectedId(mail.id);
+    setAiHint('');
+  };
+
   const sendDraft = async () => {
-    if (!draftTo.trim() || !draftSubject.trim()) return;
+    if (!draftTo.trim() || !draftSubject.trim()) {
+      setAiHint('Para enviar necesitas destinatario y asunto. Puedes guardar borrador sin ellos.');
+      return;
+    }
     setSending(true);
     setAiHint('');
 
@@ -171,8 +224,11 @@ export const MailView: React.FC = () => {
       read: true,
       starred: false
     };
-    persist([msg, ...mails]);
+    // Quitar borrador en edición si existía
+    const rest = editingDraftId ? mails.filter((m) => m.id !== editingDraftId) : mails;
+    persist([msg, ...rest]);
     setComposing(false);
+    setEditingDraftId(null);
     setFolder('sent');
     setSelectedId(msg.id);
     setDraftTo('');
@@ -186,17 +242,69 @@ export const MailView: React.FC = () => {
     setSending(false);
   };
 
-  const askAiAssist = () => {
-    const subject = draftSubject || selected?.subject || 'tu mensaje';
-    const suggestion =
-      `Hola,\n\nGracias por tu mensaje sobre «${subject}».\n` +
-      `Te confirmo que lo revisé con MARU y quedo atento a cualquier detalle adicional.\n\n` +
-      `Saludos cordiales,\n${StorageServiceSafeName()}`;
-    setDraftBody(suggestion);
-    setAiHint('Borrador sugerido por MARU (local). Revísalo antes de enviar.');
+  const askAiAssist = async () => {
+    setAiBusy(true);
+    setAiHint('MARU está ordenando y redactando la respuesta…');
     setComposing(true);
     if (selected && !draftTo) setDraftTo(selected.from);
     if (selected && !draftSubject) setDraftSubject(`Re: ${selected.subject}`);
+
+    const name = StorageService.getProfile()?.name || 'Oliver';
+    const sourceMail = selected
+      ? `De: ${selected.from}\nPara: ${selected.to}\nAsunto: ${selected.subject}\n\n${selected.body}`
+      : pasteRaw || draftBody;
+
+    const prompt =
+      `Eres el asistente de correo de MARU OS. El usuario se llama ${name}.\n` +
+      `A partir del correo (o texto pegado) siguiente:\n` +
+      `1) Identifica quién envió, a quién y de dónde/asunto.\n` +
+      `2) Resume en 1-2 líneas qué pide.\n` +
+      `3) Redacta UNA respuesta lista para enviar en español peruano, cordial y concreta.\n` +
+      `Devuelve SOLO el cuerpo del correo de respuesta (sin markdown, sin explicación).\n\n` +
+      `--- CORREO ---\n${sourceMail}`;
+
+    try {
+      const res = await ApiService.sendChatMessage({
+        prompt,
+        agentId: 'inti',
+        manualAgent: true,
+        engineMode: 'manual',
+        manualModel: 'gemma4:e2b-q4',
+        userProfile: StorageService.getProfile(),
+        healthProfile: StorageService.getHealth(),
+        locationProfile: StorageService.getLocation()
+      });
+      const text = (res?.content || '').trim();
+      if (text) {
+        setDraftBody(text);
+        setAiHint('Respuesta ordenada por MARU. Revísala y envía o guarda como borrador.');
+      } else {
+        const subject = draftSubject || selected?.subject || 'tu mensaje';
+        setDraftBody(
+          `Hola,\n\nGracias por tu mensaje sobre «${subject}».\n` +
+          `Lo revisé y quedo atento a cualquier detalle adicional.\n\nSaludos,\n${name}`
+        );
+        setAiHint('Plantilla local (IA no respondió). Puedes editarla.');
+      }
+    } catch {
+      setAiHint('No se pudo contactar a la IA. Usa la plantilla o escribe tu respuesta.');
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const processPastedMail = async () => {
+    if (!pasteRaw.trim()) {
+      setAiHint('Pega el texto del correo (quién envió, asunto, mensaje).');
+      return;
+    }
+    // Extraer campos básicos del texto pegado
+    const fromMatch = pasteRaw.match(/(?:de|from)\s*[:：]\s*(.+)/i);
+    const subjectMatch = pasteRaw.match(/(?:asunto|subject)\s*[:：]\s*(.+)/i);
+    if (fromMatch) setDraftTo(fromMatch[1].trim());
+    if (subjectMatch) setDraftSubject(`Re: ${subjectMatch[1].trim()}`);
+    setShowPaste(false);
+    await askAiAssist();
   };
 
   return (
@@ -206,9 +314,11 @@ export const MailView: React.FC = () => {
           onClick={() => {
             setComposing(true);
             setSelectedId(null);
+            setEditingDraftId(null);
             setDraftTo('');
             setDraftSubject('');
             setDraftBody('');
+            setAiHint('');
           }}
           className="maru-btn-primary w-full justify-center"
         >
@@ -277,22 +387,59 @@ export const MailView: React.FC = () => {
       <div className="flex-1 bg-[var(--maru-surface)] flex flex-col min-h-0">
         {composing ? (
           <div className="flex flex-col h-full p-4 sm:p-6 space-y-3">
-            <h2 className="font-display font-bold text-xl">Redactar</h2>
+            <h2 className="font-display font-bold text-xl">
+              {editingDraftId ? 'Editar borrador' : 'Redactar'}
+            </h2>
             <input className="maru-field" placeholder="Para" value={draftTo} onChange={(e) => setDraftTo(e.target.value)} />
             <input className="maru-field" placeholder="Asunto" value={draftSubject} onChange={(e) => setDraftSubject(e.target.value)} />
             <textarea
               className="maru-field flex-1 min-h-[220px] resize-none"
-              placeholder="Escribe tu mensaje..."
+              placeholder="Escribe tu mensaje… o pega un correo y usa «Ordenar con IA»"
               value={draftBody}
               onChange={(e) => setDraftBody(e.target.value)}
             />
+            {showPaste && (
+              <div className="space-y-2 p-3 rounded-xl bg-[var(--maru-surface-muted)] border border-[var(--maru-border-soft)]">
+                <p className="text-[11px] text-[var(--maru-text-muted)]">
+                  Pega el correo completo (De / Para / Asunto / mensaje). MARU lo ordenará y redactará la respuesta.
+                </p>
+                <textarea
+                  className="maru-field min-h-[120px] resize-none text-xs"
+                  placeholder={"De: persona@empresa.pe\nAsunto: Reunión\n\nHola, te escribo porque..."}
+                  value={pasteRaw}
+                  onChange={(e) => setPasteRaw(e.target.value)}
+                />
+                <button onClick={processPastedMail} className="maru-btn-primary text-xs" disabled={aiBusy}>
+                  <Bot size={14} /> {aiBusy ? 'Procesando…' : 'Ordenar y responder'}
+                </button>
+              </div>
+            )}
             {aiHint && <p className="text-xs text-[#4A9B9D]">{aiHint}</p>}
             <div className="flex flex-wrap gap-2">
               <button onClick={sendDraft} className="maru-btn-primary" disabled={sending}>
                 <Send size={16} /> {sending ? 'Enviando…' : mailConfigured ? 'Enviar por Gmail' : 'Guardar enviado'}
               </button>
-              <button onClick={askAiAssist} className="maru-btn-secondary"><Bot size={16} /> Ayuda de MARU</button>
-              <button onClick={() => setComposing(false)} className="maru-btn-secondary">Cancelar</button>
+              <button onClick={saveAsDraft} className="maru-btn-secondary">
+                <Save size={16} /> Guardar borrador
+              </button>
+              <button onClick={askAiAssist} className="maru-btn-secondary" disabled={aiBusy}>
+                <Bot size={16} /> {aiBusy ? 'Redactando…' : 'Ayuda de MARU'}
+              </button>
+              <button
+                onClick={() => setShowPaste((v) => !v)}
+                className="maru-btn-secondary"
+              >
+                <ClipboardPaste size={16} /> Pegar correo
+              </button>
+              <button
+                onClick={() => {
+                  setComposing(false);
+                  setEditingDraftId(null);
+                }}
+                className="maru-btn-secondary"
+              >
+                Cancelar
+              </button>
             </div>
           </div>
         ) : selected ? (
@@ -341,11 +488,3 @@ export const MailView: React.FC = () => {
     </div>
   );
 };
-
-function StorageServiceSafeName() {
-  try {
-    const raw = localStorage.getItem('maru_user_profile');
-    if (raw) return JSON.parse(raw).name || 'Oliver';
-  } catch { /* ignore */ }
-  return 'Oliver';
-}

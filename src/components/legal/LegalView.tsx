@@ -3,6 +3,7 @@ import { Scale, UploadCloud, FileText, CheckCircle2, AlertCircle, RefreshCw } fr
 import { ChatView } from '../chat/ChatView';
 import { UserProfile, HealthProfile, LocationProfile } from '../../types';
 import { ApiService } from '../../services/apiService';
+import { syncLegalDocument } from '../../services/knowledgeSync';
 
 interface LegalViewProps {
   userProfile: UserProfile;
@@ -78,6 +79,7 @@ export const LegalView: React.FC<LegalViewProps> = ({ userProfile, healthProfile
       if (!res || res.status === 'error') {
         setUploadError(res?.message || 'Backend offline. No se pudo indexar el documento.');
       } else {
+        syncLegalDocument(file.name);
         await refreshDocs();
       }
     };

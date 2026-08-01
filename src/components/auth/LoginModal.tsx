@@ -26,6 +26,26 @@ export const LoginModal: React.FC<LoginModalProps> = ({
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
+    const user = username.trim();
+    const pass = password;
+
+    if (!user) {
+      setErrorMsg('El nombre de usuario es obligatorio.');
+      return;
+    }
+    if (user.length < 5) {
+      setErrorMsg('El nombre de usuario debe tener al menos 5 caracteres.');
+      return;
+    }
+    if (!pass) {
+      setErrorMsg('La contraseña es obligatoria.');
+      return;
+    }
+    if (pass.length < 8) {
+      setErrorMsg('La contraseña debe tener al menos 8 caracteres.');
+      return;
+    }
+
     const account = StorageService.getAccount();
 
     if (!account) {
@@ -33,12 +53,12 @@ export const LoginModal: React.FC<LoginModalProps> = ({
       return;
     }
 
-    if (account.username.toLowerCase() !== username.trim().toLowerCase()) {
+    if (account.username.toLowerCase() !== user.toLowerCase()) {
       setErrorMsg('Usuario no encontrado.');
       return;
     }
 
-    const hashedInput = mockHashPassword(password);
+    const hashedInput = mockHashPassword(pass);
     if (account.passwordHash === hashedInput) {
       setErrorMsg('');
       setFailedAttempts(0);
@@ -80,8 +100,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                placeholder="Ej: oliver_revilo"
+                placeholder="Mínimo 5 caracteres"
                 required
+                minLength={5}
+                autoComplete="username"
                 className="maru-field pl-10"
               />
             </div>
@@ -97,8 +119,10 @@ export const LoginModal: React.FC<LoginModalProps> = ({
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
+                placeholder="Mínimo 8 caracteres"
                 required
+                minLength={8}
+                autoComplete="current-password"
                 className="maru-field pl-10 pr-10"
               />
               <button

@@ -18,8 +18,10 @@ normalización de acentos, tokenización y scoring por solapamiento
 de keywords, título y cuerpo.
 """
 
+import json
 import re
 import unicodedata
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 # ══════════════════════════════════════════════════════════════════
@@ -504,6 +506,343 @@ KNOWLEDGE_BASE: List[Dict[str, Any]] = [
             "Regla práctica: primero elegir la estructura de datos correcta; el algoritmo suele seguir de forma natural."
         ),
     },
+    # ── Extra: vademécum / judicial / emergencia (contexto PDF-like) ──
+    {
+        "id": "minsa-vademecum-basico",
+        "title": "Uso racional de medicamentos frecuentes (vademécum básico)",
+        "source": "Formulario Nacional de Medicamentos Esenciales DIGEMID/MINSA + buenas prácticas clínicas",
+        "agents": ["aya", "sumaq"],
+        "keywords": ["paracetamol", "amoxicilina", "ibuprofeno", "omeprazol", "metformina", "losartan", "dosis", "sobredosis", "medicamento", "pastilla", "receta"],
+        "body": (
+            "PARACETAMOL: adultos 500 mg–1 g cada 6–8 h, máximo 4 g/día. Hepatotóxico en sobredosis; no combinar "
+            "con otras presentaciones que lo contengan. En dengue probable es el antipirético de elección.\n"
+            "AMOXICILINA: antibiótico beta-lactámico; dosis típica adultos 500 mg cada 8 h (según indicación). "
+            "Contraindicado si alergia a penicilinas. Completar el esquema; no automedicarse.\n"
+            "IBUPROFENO: AINE; evitar en dengue, úlcera activa, IRC severa o 3er trimestre de gestación.\n"
+            "OMEPRAZOL: IBP; usualmente 20 mg/día en ayunas por ciclos cortos salvo indicación.\n"
+            "METFORMINA / LOSARTÁN: uso crónico bajo control médico; no suspender abruptamente sin indicación.\n"
+            "REGLA MARU: si la dosis parece excesiva (≥4 comprimidos/toma o ≥2 g de principio activo dudoso), "
+            "exigir foto de receta y recomendar consulta profesional. Nunca inventar dosis."
+        ),
+    },
+    {
+        "id": "legal-proceso-civil-basico",
+        "title": "Proceso civil peruano: plazos y principios básicos",
+        "source": "Código Procesal Civil (D. Leg. N° 768 y modificatorias) — resumen orientativo",
+        "agents": ["inti"],
+        "keywords": ["demanda", "plazo", "notificacion", "apelacion", "juicio", "proceso civil", "abogado", "juzgado", "prueba", "sentencia"],
+        "body": (
+            "El proceso civil peruano se rige por principios de igualdad, contradicción, economía procesal y "
+            "motivación de resoluciones. La demanda debe identificar partes, petitorio, fundamentos de hecho y "
+            "de derecho, y medios probatorios.\n"
+            "Tras la calificación, se admite y se notifica al demandado para contestar dentro del plazo legal "
+            "(ordinario suele ser 10 días hábiles salvo reglas especiales). Existen excepciones, reconvención y "
+            "saneamiento. La apelación de sentencias se interpone ante el mismo juzgado para elevar a la Sala.\n"
+            "IMPORTANTE: este resumen NO sustituye asesoría legal personalizada ni plazos específicos de cada "
+            "especialidad (familia, laboral, constitucional). Para un caso concreto, citar norma y recomendar "
+            "revisar el expediente y un abogado colegiado."
+        ),
+    },
+    {
+        "id": "indeci-kit-emergencia",
+        "title": "Kit de emergencia familiar y evacuación (INDECI)",
+        "source": "INDECI — Preparación ante desastres / Guía familiar de emergencia",
+        "agents": ["tupac", "pacha", "yaku"],
+        "keywords": ["kit", "emergencia", "mochila", "evacuacion", "huaico", "sismo", "linterna", "agua", "documentos", "punto de reunion"],
+        "body": (
+            "Kit mínimo recomendado: agua (3 L/persona/día, ideal 3 días), alimentos no perecederos, linterna + "
+            "pilas, radio a pilas, botiquín, medicamentos personales, silbato, cargador/powerbank, documentos en "
+            "bolsa impermeable, efectivo, tapa bocas, ropa abrigadora.\n"
+            "Antes: identificar zona segura, rutas de evacuación y punto de reunión familiar. Durante sismo: "
+            "agacharse, cubrirse y sujetarse. Durante huaico: subir a zona alta, no cruzar corrientes.\n"
+            "Después: verificar fugas de gas/agua, no usar ascensores, seguir canales oficiales INDECI/COEN."
+        ),
+    },
+    {
+        "id": "senamhi-precipitacion-lectura",
+        "title": "Cómo leer precipitación y alerta hidrológica",
+        "source": "SENAMHI — Avisos meteorológicos / umbrales orientativos de lluvia",
+        "agents": ["pacha", "tupac", "yaku"],
+        "keywords": ["precipitacion", "lluvia", "mm", "alerta", "hidrologico", "quebrada", "rimac", "senamhi", "mapa", "calor"],
+        "body": (
+            "La precipitación se mide en milímetros (mm): 1 mm ≈ 1 L/m². Lluvia ligera <2.5 mm/h; moderada "
+            "2.5–10 mm/h; intensa >10 mm/h. En quebradas (p. ej. valle del Rímac / Chosica) lluvias concentradas "
+            "en cabecera elevan riesgo de huaico aunque en la ciudad ‘apenas llueva’.\n"
+            "Al interpretar un mapa: color frío/teal = acumulación de agua; zonas cálidas/naranja = estrés térmico "
+            "o mayor energía del sistema. Combinar con humedad del suelo y avisos hidrológicos oficiales.\n"
+            "Acción ciudadana: despejar desagües, evitar cauces, seguir avisos SENAMHI/COEN y rutas de evacuación."
+        ),
+    },
+    # ── Inti · Judicial / trámites (resúmenes MARU, no citas inventadas) ──
+    {
+        "id": "legal-cpc-demanda-requisitos",
+        "title": "CPC: requisitos de la demanda y calificación",
+        "source": "Resumen MARU basado en Código Procesal Civil (D. Leg. N° 768 y modificatorias) — orientación general",
+        "agents": ["inti"],
+        "keywords": ["demanda", "petitorio", "fundamentos", "medios probatorios", "calificacion", "inadmisible", "improcedente", "cpc"],
+        "body": (
+            "En el proceso civil ordinario, la demanda suele identificar: juez competente, datos de las partes, "
+            "petitorio claro, fundamentos de hecho y de derecho, y ofrecimiento de medios probatorios. "
+            "El juez califica: puede declarar inadmisible (subsanable, p. ej. falta de anexo) o improcedente "
+            "(vía o pretensión no procede). Tras la admisión se notifica al demandado.\n"
+            "MARU no calcula plazos caso a caso: remite a revisar el CPC vigente, el expediente y un abogado "
+            "colegiado. Este texto es un resumen orientativo, no asesoría legal vinculante."
+        ),
+    },
+    {
+        "id": "legal-constitucion-derechos-basicos",
+        "title": "Constitución: dignidad, salud y derechos fundamentales (básico)",
+        "source": "Resumen MARU basado en Constitución Política del Perú (1993) — Arts. 1, 2, 7 y afines",
+        "agents": ["inti", "yaku", "aya"],
+        "keywords": ["constitucion", "dignidad", "derechos", "salud", "igualdad", "debido proceso", "libertad"],
+        "body": (
+            "La Constitución reconoce la dignidad de la persona y un catálogo de derechos fundamentales "
+            "(libertad, igualdad ante la ley, integridad, intimidad, debido proceso, entre otros). "
+            "El derecho a la salud y a la protección social aparece en el marco de políticas públicas; "
+            "no sustituye normas sectoriales (Ley General de Salud, ESSALUD, SIS).\n"
+            "Ante conflictos concretos (amparo, hábeas data, etc.) el cauce es el proceso constitucional "
+            "ante el Poder Judicial / Tribunal Constitucional. Resumen MARU: no inventar artículos ni números "
+            "si no están en este corpus; citar la Constitución y recomendar texto oficial."
+        ),
+    },
+    {
+        "id": "legal-tramites-comunes-peru",
+        "title": "Trámites comunes en Perú: DNI, SUNARP, municipalidad (orientación)",
+        "source": "Resumen MARU basado en prácticas administrativas públicas peruanas (RENIEC, SUNARP, municipalidades) — no es texto oficial literal",
+        "agents": ["inti", "yaku"],
+        "keywords": ["tramite", "dni", "reniec", "sunarp", "partida", "licencia", "municipalidad", "poder", "notaria"],
+        "body": (
+            "Trámites frecuentes orientativos:\n"
+            "- DNI / identidad: RENIEC (renovación, duplicado, cambio de domicilio).\n"
+            "- Propiedad / inmuebles: SUNARP (partida registral, gravámenes); compraventa suele requerir "
+            "escritura pública y formalidades notariales.\n"
+            "- Local / comercio: licencias municipales, defensa civil, según distrito.\n"
+            "- Poderes y actas: notaría + eventual inscripción.\n"
+            "Costos, plazos y requisitos cambian por sede y norma vigente. MARU debe indicar canales oficiales "
+            "(web RENIEC/SUNARP/municipio) y no inventar tasas ni fechas de vencimiento."
+        ),
+    },
+    {
+        "id": "legal-familia-alimentos-orientacion",
+        "title": "Familia: alimentos y tenencia (orientación general)",
+        "source": "Resumen MARU basado en Código Civil / Código de los Niños y Adolescentes — orientación, no asesoría",
+        "agents": ["inti"],
+        "keywords": ["alimentos", "pension", "tenencia", "familia", "menor", "divorcio", "violencia"],
+        "body": (
+            "En materia de alimentos, el interés superior del niño/adolescente prima. Existen procesos "
+            "de alimentos ante juzgados de paz letrado / familia según cuantía y reglas vigentes. "
+            "La tenencia y régimen de visitas se resuelven priorizando el bienestar del menor.\n"
+            "Violencia familiar: canales de denuncia y medidas de protección (Centros Emergencia Mujer, "
+            "Policía, fiscalía). MARU no sustituye denuncia ni cálculo de pensión; orienta a acudir a "
+            "defensoría / abogado / instituciones oficiales."
+        ),
+    },
+    # ── Aya · Vademécum ampliado (temas del catálogo ~200 meds) ──
+    {
+        "id": "minsa-vademecum-cardio-meta",
+        "title": "Vademécum: cardiovascular y metabólico (resumen seguro)",
+        "source": "Resumen MARU alineado a Formulario Nacional / buenas prácticas DIGEMID-MINSA — no sustituye ficha técnica",
+        "agents": ["aya", "sumaq"],
+        "keywords": ["losartan", "enalapril", "amlodipino", "metformina", "atorvastatina", "furosemida", "insulina", "hipertension", "diabetes"],
+        "body": (
+            "Antihipertensivos frecuentes (losartán, enalapril, amlodipino): uso crónico bajo control; "
+            "no suspender de golpe sin indicación. IECA puede causar tos seca.\n"
+            "Metformina: con alimentos; control renal. Insulina: riesgo de hipoglucemia; técnica correcta.\n"
+            "Estatinas (atorvastatina): preferible noche; reportar mialgias intensas.\n"
+            "Diuréticos: control de electrolitos. REGLA MARU: dosis dudosas → pedir receta; nunca inventar "
+            "esquemas. En dengue u otras alertas, revisar interacciones y contraindicaciones del caso."
+        ),
+    },
+    {
+        "id": "minsa-vademecum-antiinfecciosos",
+        "title": "Vademécum: antiinfecciosos y uso racional",
+        "source": "Resumen MARU basado en uso racional de antimicrobianos / Formulario Nacional DIGEMID",
+        "agents": ["aya"],
+        "keywords": ["amoxicilina", "azitromicina", "ciprofloxacino", "metronidazol", "antibiotico", "resistencia", "penicilina"],
+        "body": (
+            "Antibióticos (amoxicilina, azitromicina, cefalexina, ciprofloxacino, etc.): solo con indicación; "
+            "completar esquema; no automedicarse. Alergia a penicilina contraindica beta-lactámicos relacionados.\n"
+            "Metronidazol: evitar alcohol. Fluoroquinolonas: riesgo tendinoso; no con lácteos/antiácidos que "
+            "interfieran absorción.\n"
+            "Antivirales/antiparasitarios (aciclovir, ivermectina, albendazol): según peso/esquema médico.\n"
+            "MARU enfatiza resistencia antimicrobiana: no ‘dar antibiótico por si acaso’."
+        ),
+    },
+    {
+        "id": "minsa-vademecum-analgesia-gi",
+        "title": "Vademécum: analgesia, AINE e IBP",
+        "source": "Resumen MARU basado en buenas prácticas clínicas y Formulario Nacional",
+        "agents": ["aya", "sumaq"],
+        "keywords": ["paracetamol", "ibuprofeno", "diclofenaco", "omeprazol", "pantoprazol", "aine", "gastritis", "dolor"],
+        "body": (
+            "Paracetamol: antipirético de elección en muchos contextos; máx. orientativo 4 g/día adulto; "
+            "hepatotoxicidad en sobredosis.\n"
+            "AINE (ibuprofeno, diclofenaco): evitar en dengue probable, úlcera activa, IRC severa, 3er trimestre.\n"
+            "IBP (omeprazol, pantoprazol): en ayunas; ciclos cortos salvo indicación.\n"
+            "Opioides débiles (tramadol): sedación/náuseas; solo con indicación. Ante exceso aparente de "
+            "comprimidos por toma, MARU pide foto de receta y deriva a profesional."
+        ),
+    },
+    {
+        "id": "minsa-vademecum-salud-mental",
+        "title": "Vademécum: salud mental (ISRS, benzodiacepinas) — precauciones",
+        "source": "Resumen MARU de precauciones clínicas habituales — no es guía de prescripción",
+        "agents": ["aya", "sumaq"],
+        "keywords": ["sertralina", "fluoxetina", "alprazolam", "clonazepam", "ansiedad", "depresion", "benzodiacepina"],
+        "body": (
+            "ISRS (sertralina, fluoxetina): efecto gradual; no suspender abruptamente sin indicación; "
+            "vigilar interacciones.\n"
+            "Benzodiacepinas (alprazolam, clonazepam, diazepam): sedación, dependencia; uso corto; no alcohol.\n"
+            "Antipsicóticos/antiepilépticos: control médico estricto (metabólico, niveles, teratogenicidad "
+            "según fármaco).\n"
+            "MARU no inicia ni titula psicofármacos: escucha, orienta a emergencia si hay riesgo, y remite "
+            "a salud mental / médico tratante."
+        ),
+    },
+    # ── Tupac · Emergencia ampliada ──
+    {
+        "id": "indeci-sismo-familia",
+        "title": "Sismos: antes, durante y después (familia)",
+        "source": "Resumen MARU basado en recomendaciones INDECI / IGP de preparación sísmica",
+        "agents": ["tupac", "pacha", "yaku"],
+        "keywords": ["sismo", "terremoto", "evacuacion", "punto de reunion", "mochila", "gas", "igp", "indeci"],
+        "body": (
+            "Antes: identificar zonas seguras, fijar estanterías, tener kit y punto de reunión, conocer rutas.\n"
+            "Durante: agacharse, cubrirse y sujetarse; lejos de ventanas; no usar ascensores.\n"
+            "Después: verificar fugas de gas/agua/electricidad; no encender fuego si hay olor a gas; "
+            "seguir canales oficiales INDECI/COEN 115 e IGP. Teléfonos útiles: Bomberos 116, SAMU 106, "
+            "Policía 105. Resumen orientativo; priorizar autoridades locales en alerta real."
+        ),
+    },
+    {
+        "id": "emg-primeros-auxilios-basico",
+        "title": "Primeros auxilios básicos (hemorragia, quemadura, desmayo)",
+        "source": "Resumen MARU basado en principios de primeros auxilios AHA/Cruz Roja adoptados en capacitación ciudadana",
+        "agents": ["tupac", "aya"],
+        "keywords": ["hemorragia", "quemadura", "desmayo", "botiquin", "vendaje", "samu", "auxilios"],
+        "body": (
+            "Hemorragia externa: presión directa con gasa limpia; elevar si es posible; no retirar apósitos "
+            "empapados — añadir encima. Quemaduras: agua tibia corriente; no remedios caseros grasos; "
+            "cubrir con apósitos limpios. Desmayo: tumbar, elevar piernas si no hay trauma; valorar vía "
+            "aérea y respiración.\n"
+            "Activar SAMU 106 ante compromiso vital. Este resumen no reemplaza curso formal de primeros auxilios."
+        ),
+    },
+    {
+        "id": "indeci-huaico-quebradas",
+        "title": "Huaicos en quebradas: alerta temprana ciudadana",
+        "source": "Resumen MARU basado en INDECI / COEN y experiencia de cuencas (p. ej. Rímac)",
+        "agents": ["tupac", "pacha"],
+        "keywords": ["huaico", "lloclla", "quebrada", "evacuacion", "zona alta", "chosica", "rimac", "coen"],
+        "body": (
+            "Lluvias intensas en cabecera + suelos saturados elevan riesgo de huaico aunque en el valle "
+            "‘casi no llueva’. Señales: turbidez súbita, ruido de arrastre, avisos SENAMHI/COEN.\n"
+            "Acción: subir a zona segura predefinida; no cruzar cauces; no regresar por pertenencias. "
+            "Mantener kit, documentos y punto de reunión familiar. Números: INDECI/COEN 115, Bomberos 116."
+        ),
+    },
+    # ── Pacha · Clima / SENAMHI ──
+    {
+        "id": "senamhi-avisos-colores",
+        "title": "Avisos SENAMHI: lectura orientativa de niveles",
+        "source": "Resumen MARU basado en lógica de avisos meteorológicos SENAMHI (consultar boletín oficial vigente)",
+        "agents": ["pacha", "tupac"],
+        "keywords": ["aviso", "senamhi", "naranja", "rojo", "amarillo", "lluvia", "viento", "temperatura"],
+        "body": (
+            "Los avisos meteorológicos suelen escalar por impacto potencial (amarillo → naranja → rojo). "
+            "MARU debe remitir al boletín/aviso oficial del día y no inventar umbrales de color si no "
+            "están publicados.\n"
+            "Combinar precipitación, viento, temperatura extrema y avisos hidrológicos. En costa central "
+            "y sierra, el mismo mm de lluvia no implica el mismo riesgo: importa la cuenca y la humedad "
+            "previa del suelo."
+        ),
+    },
+    {
+        "id": "clima-nino-costero-ciudadano",
+        "title": "Niño costero / ENFEN: qué vigilar como ciudadano",
+        "source": "Resumen MARU basado en comunicados ENFEN (IMARPE, SENAMHI, IGP, et al.)",
+        "agents": ["pacha", "yaku", "tupac"],
+        "keywords": ["nino", "enfen", "tssm", "lluvia", "norte", "temperatura mar"],
+        "body": (
+            "El fenómeno El Niño / Niño costero se monitorea por anomalías de temperatura superficial "
+            "del mar y patrones de lluvia. Comunicados ENFEN informan estados de vigilancia/alerta.\n"
+            "Impacto ciudadano típico: lluvias intensas en norte y centro, riesgo de inundaciones/huaicos, "
+            "estrés en salud (dengue) e infraestructura. Acción: seguir comunicados oficiales, limpiar "
+            "desagües, revisar plan familiar. No inventar magnitudes de TSM ni fechas de ‘pico’."
+        ),
+    },
+    # ── Yaku · Cultura / historia / geografía Perú ──
+    {
+        "id": "yaku-geografia-regiones",
+        "title": "Geografía del Perú: costa, sierra y selva",
+        "source": "Resumen MARU de geografía escolar/cultural peruana (INEI / textos educativos de referencia)",
+        "agents": ["yaku", "pacha"],
+        "keywords": ["costa", "sierra", "selva", "andes", "amazonia", "pacifico", "regiones", "geografia"],
+        "body": (
+            "El Perú se organiza tradicionalmente en costa (desierto costero y llanuras), sierra (Andes, "
+            "altiplanos, valles interandinos) y selva (alta y baja Amazonía). La diversidad de climas "
+            "explica cultivos, riesgos (sismos en costa/sierra; lluvias/huaicos; inundaciones amazónicas) "
+            "y diversidad cultural.\n"
+            "Ciudades de referencia: Lima-Callao (costa central), Arequipa/Cusco/Puno (sierra), "
+            "Iquitos/Pucallpa (selva). Resumen cultural-educativo; para datos demográficos citar INEI."
+        ),
+    },
+    {
+        "id": "yaku-historia-breve",
+        "title": "Historia breve del Perú: hitos para conversación",
+        "source": "Resumen MARU de hitos históricos de dominio público (periodización escolar)",
+        "agents": ["yaku"],
+        "keywords": ["inca", "virreinato", "independencia", "republica", "tahuantinsuyo", "historia", "cusco"],
+        "body": (
+            "Hitos orientativos: culturas prehispánicas; Tahuantinsuyo (Cusco); conquista y Virreinato "
+            "del Perú; independencia (siglo XIX); vida republicana con ciclos políticos y sociales. "
+            "El Quechua y el Aymara, junto al castellano, forman parte del patrimonio lingüístico.\n"
+            "MARU usa este marco para conversación cultural; no inventa fechas dudosas ni citas de "
+            "crónicas no listadas aquí."
+        ),
+    },
+    {
+        "id": "yaku-cultura-quechua-basico",
+        "title": "Cultura andina y quechua: nociones básicas",
+        "source": "Resumen MARU de nociones culturales abiertas (lengua, ayni, pachamama) — no es glosario oficial MINEDU",
+        "agents": ["yaku", "sumaq"],
+        "keywords": ["quechua", "ayni", "pachamama", "runasimi", "andino", "comunidad", "traduccion"],
+        "body": (
+            "El runasimi (quechua) agrupa variedades; saludos y fórmulas de respeto varían por región. "
+            "Conceptos frecuentes en diálogo intercultural: ayni (reciprocidad), pachamama (tierra/mundo), "
+            "ayllu (comunidad). MARU puede ayudar a traducir frases simples y explicar contexto, "
+            "señalando límites (no sustituye hablante nativo ni intérprete oficial)."
+        ),
+    },
+    # ── Kipu · tooling IA local / programación ──
+    {
+        "id": "kipu-ollama-local",
+        "title": "Ollama y modelos locales en MARU",
+        "source": "Resumen MARU basado en documentación pública de Ollama + arquitectura MARU OS",
+        "agents": ["kipu"],
+        "keywords": ["ollama", "modelo", "gguf", "local", "ram", "gemma", "llama", "api"],
+        "body": (
+            "MARU puede enrutar chat a modelos locales vía Ollama (API HTTP). Formato habitual de pesos: "
+            "GGUF/quantizations. La RAM disponible limita el tamaño del modelo.\n"
+            "Buenas prácticas: verificar `ollama list`, probar un modelo pequeño primero, no exponer "
+            "la API a redes no confiables. Si el modelo falla por VRAM/RAM, sugerir uno más liviano "
+            "o modo cloud solo si el usuario lo habilita."
+        ),
+    },
+    {
+        "id": "kipu-rag-offline",
+        "title": "RAG offline: bóveda + base de conocimiento",
+        "source": "Resumen MARU de la arquitectura interna (knowledge_base + document_vault)",
+        "agents": ["kipu", "inti"],
+        "keywords": ["rag", "embeddings", "qdrant", "vault", "offline", "chunks", "busqueda"],
+        "body": (
+            "MARU combina: (1) base de conocimiento embebida offline con scoring léxico; "
+            "(2) bóveda documental del usuario (PDF/texto) con chunks; (3) opcionalmente Qdrant "
+            "cuando el stack Docker está arriba.\n"
+            "Para desarrollo: preferir textos fieles y fuentes etiquetadas; no inventar citas. "
+            "Si la API `/knowledge` está reachable, el frontend puede refrescar el índice."
+        ),
+    },
 ]
 
 # ══════════════════════════════════════════════════════════════════
@@ -534,7 +873,7 @@ def _tokenize(text: str) -> List[str]:
 
 def list_documents(agent: Optional[str] = None, query: Optional[str] = None) -> List[Dict[str, Any]]:
     """Lista/filtra documentos. Con `query` devuelve ordenados por relevancia."""
-    docs = KNOWLEDGE_BASE
+    docs = get_active_knowledge_base()
     if agent:
         agent = agent.strip().lower()
         docs = [d for d in docs if agent in d["agents"]]
@@ -586,7 +925,7 @@ def search_knowledge(
     Recupera los documentos oficiales más relevantes para la consulta,
     filtrados por agente propietario. 100% offline (léxico, sin embeddings).
     """
-    candidates = KNOWLEDGE_BASE
+    candidates = get_active_knowledge_base()
     if agent_id:
         agent_id = agent_id.strip().lower()
         owned = [d for d in candidates if agent_id in d["agents"]]
@@ -619,3 +958,166 @@ def build_rag_context(query: str, agent_id: Optional[str] = None, limit: int = 3
         "si algo no está cubierto, dilo honestamente y recomienda consultar la fuente oficial."
     )
     return "\n".join(parts)
+
+
+def export_catalog_index() -> List[Dict[str, Any]]:
+    """Índice ligero (id, title, source, agents, keywords, summary) para frontend / public/kb."""
+    out: List[Dict[str, Any]] = []
+    for d in get_active_knowledge_base():
+        body = d.get("body") or ""
+        summary = body.split("\n", 1)[0][:160]
+        out.append(
+            {
+                "id": d["id"],
+                "title": d["title"],
+                "source": d["source"],
+                "agents": list(d["agents"]),
+                "keywords": list(d["keywords"]),
+                "summary": summary,
+            }
+        )
+    return out
+
+
+def export_full_knowledge() -> Dict[str, Any]:
+    """Export completo para sync remoto / espejo entre instancias MARU."""
+    docs = get_active_knowledge_base()
+    return {
+        "version": 1,
+        "exportedAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+        "count": len(docs),
+        "documents": [
+            {
+                "id": d["id"],
+                "title": d["title"],
+                "source": d["source"],
+                "agents": list(d["agents"]),
+                "keywords": list(d["keywords"]),
+                "body": d["body"],
+            }
+            for d in docs
+        ],
+    }
+
+
+def _remote_override_path() -> Path:
+    return Path(__file__).resolve().parent.parent / "data" / "kb" / "remote_override.json"
+
+
+def _load_remote_docs() -> List[Dict[str, Any]]:
+    path = _remote_override_path()
+    if not path.exists():
+        return []
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        docs = payload.get("documents") or []
+        return [d for d in docs if isinstance(d, dict) and d.get("id") and d.get("body")]
+    except Exception:
+        return []
+
+
+def get_active_knowledge_base() -> List[Dict[str, Any]]:
+    """Corpus embebido + overrides remotos (merge por id; remoto gana)."""
+    by_id: Dict[str, Dict[str, Any]] = {d["id"]: d for d in KNOWLEDGE_BASE}
+    for d in _load_remote_docs():
+        by_id[d["id"]] = d
+    return list(by_id.values())
+
+
+def _validate_remote_doc(d: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    required = ("id", "title", "source", "agents", "keywords", "body")
+    if not all(k in d for k in required):
+        return None
+    if not isinstance(d["agents"], list) or not isinstance(d["keywords"], list):
+        return None
+    if not str(d["body"]).strip():
+        return None
+    return {
+        "id": str(d["id"]),
+        "title": str(d["title"]),
+        "source": str(d["source"]),
+        "agents": [str(a) for a in d["agents"]],
+        "keywords": [str(k) for k in d["keywords"]],
+        "body": str(d["body"]),
+    }
+
+
+def try_refresh_from_remote(api_base: Optional[str] = None) -> Dict[str, Any]:
+    """
+    Refresco online de la KB.
+
+    Prioridad de URL:
+      1. api_base (argumento)
+      2. MARU_KB_REMOTE_URL
+      3. Si no hay remoto: sincroniza desde el propio export local (no-op útil para healthcheck)
+
+    Espera JSON con shape { documents: [ {id,title,source,agents,keywords,body}, ... ] }
+    o una lista directa de documentos.
+    """
+    import os
+    import urllib.error
+    import urllib.request
+
+    remote = (api_base or os.getenv("MARU_KB_REMOTE_URL") or "").strip().rstrip("/")
+    if not remote:
+        return {
+            "status": "skipped",
+            "reason": "Defina MARU_KB_REMOTE_URL (o pase api_base) apuntando a /knowledge/export",
+            "documentCount": len(get_active_knowledge_base()),
+            "embeddedCount": len(KNOWLEDGE_BASE),
+            "remoteMerged": len(_load_remote_docs()),
+        }
+
+    url = remote if remote.endswith("/export") or remote.endswith(".json") else f"{remote}/knowledge/export"
+    if not url.startswith("http"):
+        return {"status": "skipped", "reason": f"URL inválida: {url}"}
+
+    try:
+        req = urllib.request.Request(url, headers={"Accept": "application/json", "User-Agent": "MARU-OS-KB/1.0"})
+        with urllib.request.urlopen(req, timeout=12) as resp:
+            raw = resp.read().decode("utf-8")
+        payload = json.loads(raw)
+    except urllib.error.URLError as e:
+        return {"status": "offline", "reason": str(e), "documentCount": len(get_active_knowledge_base())}
+    except Exception as e:
+        return {"status": "error", "reason": str(e), "documentCount": len(get_active_knowledge_base())}
+
+    docs_in = payload.get("documents") if isinstance(payload, dict) else payload
+    if not isinstance(docs_in, list):
+        return {"status": "error", "reason": "JSON remoto sin lista documents", "documentCount": len(get_active_knowledge_base())}
+
+    validated: List[Dict[str, Any]] = []
+    for item in docs_in:
+        if isinstance(item, dict):
+            v = _validate_remote_doc(item)
+            if v:
+                validated.append(v)
+
+    if not validated:
+        return {"status": "error", "reason": "Ningún documento remoto pasó validación", "documentCount": len(get_active_knowledge_base())}
+
+    out_path = _remote_override_path()
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(
+        json.dumps(
+            {
+                "mergedAt": __import__("datetime").datetime.utcnow().isoformat() + "Z",
+                "sourceUrl": url,
+                "count": len(validated),
+                "documents": validated,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    return {
+        "status": "ok",
+        "sourceUrl": url,
+        "merged": len(validated),
+        "documentCount": len(get_active_knowledge_base()),
+        "embeddedCount": len(KNOWLEDGE_BASE),
+        "remoteMerged": len(validated),
+    }
+

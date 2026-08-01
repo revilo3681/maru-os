@@ -25,6 +25,7 @@ import {
 } from '../../services/storageService';
 import { UserProfile, HealthProfile, LocationProfile, Habit, CommunicationTone, Medication } from '../../types';
 import { AGENTS_CATALOG } from '../../data/agentsData';
+import { PERU_CITIES, findCity, validateLocation } from '../../data/peruCities';
 
 interface OnboardingWizardProps {
   onComplete: () => void;
@@ -34,10 +35,11 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({ onComplete }
   const [step, setStep] = useState(1);
 
   // Step 1: Account
-  const [username, setUsername] = useState('oliver_revilo');
-  const [password, setPassword] = useState('Oliver2026!');
-  const [confirmPassword, setConfirmPassword] = useState('Oliver2026!');
-  const [termsAccepted, setTermsAccepted] = useState(true);
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [termsAccepted, setTermsAccepted] = useState(false);
+  const [accountError, setAccountError] = useState('');
 
   // Step 2: Seed Phrase
   const [recoverySeed] = useState<string[]>(generate12WordSeed());
@@ -99,10 +101,11 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
     setSeedSaved(true);
   };
 
-  const handleAddAllergy = (allergyStr: string) => {
-    if (!allergyStr.trim()) return;
-    if (!health.allergies.includes(allergyStr.trim())) {
-      setHealth({ ...health, allergies: [...health.allergies, allergyStr.trim()] });
+  const handleAddAllergy = (allergyStr?: string) => {
+    const value = (allergyStr ?? newAllergy).trim();
+    if (!value) return;
+    if (!health.allergies.includes(value)) {
+      setHealth({ ...health, allergies: [...health.allergies, value] });
     }
     setNewAllergy('');
   };
@@ -194,7 +197,9 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                 <input
                   type="text"
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => { setUsername(e.target.value); setAccountError(''); }}
+                  placeholder="Mínimo 5 caracteres"
+                  minLength={5}
                   className="w-full px-4 py-2.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-sm text-[var(--maru-text)] focus:ring-2 focus:ring-[#007AFF]/50 outline-none"
                   required
                 />
@@ -205,7 +210,9 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                 <input
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => { setPassword(e.target.value); setAccountError(''); }}
+                  placeholder="Mínimo 8 caracteres"
+                  minLength={8}
                   className="w-full px-4 py-2.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-sm text-[var(--maru-text)] focus:ring-2 focus:ring-[#007AFF]/50 outline-none"
                   required
                 />
@@ -216,11 +223,19 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                 <input
                   type="password"
                   value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  onChange={(e) => { setConfirmPassword(e.target.value); setAccountError(''); }}
+                  placeholder="Debe coincidir con la contraseña"
+                  minLength={8}
                   className="w-full px-4 py-2.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-sm text-[var(--maru-text)] focus:ring-2 focus:ring-[#007AFF]/50 outline-none"
                   required
                 />
               </div>
+
+              {accountError && (
+                <p className="text-xs text-[#C0392B] bg-[#C0392B]/10 border border-[#C0392B]/25 rounded-xl px-3 py-2">
+                  {accountError}
+                </p>
+              )}
 
               <label className="flex items-start gap-3 p-3 bg-[#F2F2F7] rounded-xl border border-transparent cursor-pointer">
                 <input
@@ -424,7 +439,7 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
             <div className="space-y-2">
               <label className="block text-xs font-mono uppercase text-[var(--maru-text)]">Alergias Conocidas</label>
               <div className="flex flex-wrap gap-2">
-                {['Maní', 'Gluten', 'Lactosa', 'Penicilina', 'Mariscos', 'Polen'].map((allergy) => {
+                {Array.from(new Set(['Maní', 'Gluten', 'Lactosa', 'Penicilina', 'Mariscos', 'Polen', ...health.allergies])).map((allergy) => {
                   const isSelected = health.allergies.includes(allergy);
                   return (
                     <button
@@ -454,12 +469,19 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                   type="text"
                   value={newAllergy}
                   onChange={(e) => setNewAllergy(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      handleAddAllergy();
+                    }
+                  }}
                   placeholder="Agregar otra alergia..."
                   className="flex-1 px-3 py-1.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-xs"
                 />
                 <button
                   type="button"
-                  onClick={() => handleAddAllergy(newAllergy)}
+                  onClick={() => handleAddAllergy()}
                   className="px-3 py-1.5 bg-[#1E3A5F] text-white rounded-xl text-xs"
                 >
                   Agregar
@@ -543,25 +565,40 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
                 <label className="block text-xs font-mono uppercase text-[var(--maru-text)] mb-1">Ciudad</label>
                 <select
                   value={location.city}
-                  onChange={(e) => setLocation({ ...location, city: e.target.value })}
+                  onChange={(e) => {
+                    const city = e.target.value;
+                    const meta = findCity(city);
+                    const firstDistrict = meta?.districts[0] || '';
+                    setLocation({
+                      ...location,
+                      city,
+                      district: firstDistrict
+                    });
+                  }}
                   className="w-full px-4 py-2.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-sm"
                 >
-                  <option value="Chosica">Chosica (Lurigancho-Chosica)</option>
-                  <option value="Lima">Lima Metropolitana</option>
-                  <option value="Cusco">Cusco</option>
-                  <option value="Huaraz">Huaraz</option>
-                  <option value="Piura">Piura</option>
+                  {PERU_CITIES.map((c) => (
+                    <option key={c.city} value={c.city}>
+                      {c.city} ({c.region})
+                    </option>
+                  ))}
                 </select>
               </div>
 
               <div>
                 <label className="block text-xs font-mono uppercase text-[var(--maru-text)] mb-1">Distrito</label>
-                <input
-                  type="text"
+                <select
                   value={location.district}
                   onChange={(e) => setLocation({ ...location, district: e.target.value })}
                   className="w-full px-4 py-2.5 bg-[#F2F2F7]/50 border border-transparent rounded-xl text-sm"
-                />
+                >
+                  {(findCity(location.city)?.districts || ['Centro']).map((d) => (
+                    <option key={d} value={d}>{d}</option>
+                  ))}
+                </select>
+                <p className={`text-[10px] mt-1.5 ${validateLocation(location.city, location.district).districtOk ? 'text-emerald-700' : 'text-amber-700'}`}>
+                  {validateLocation(location.city, location.district).message}
+                </p>
               </div>
             </div>
           </div>
@@ -700,6 +737,34 @@ no se podrá recuperar tu cuenta. Guárdalo bien.
             <button
               type="button"
               onClick={() => {
+                if (step === 1) {
+                  const user = username.trim();
+                  if (!user) {
+                    setAccountError('El nombre de usuario es obligatorio.');
+                    return;
+                  }
+                  if (user.length < 5) {
+                    setAccountError('El nombre de usuario debe tener al menos 5 caracteres.');
+                    return;
+                  }
+                  if (!password) {
+                    setAccountError('La contraseña es obligatoria.');
+                    return;
+                  }
+                  if (password.length < 8) {
+                    setAccountError('La contraseña debe tener al menos 8 caracteres.');
+                    return;
+                  }
+                  if (password !== confirmPassword) {
+                    setAccountError('Las contraseñas no coinciden. Repite la misma contraseña.');
+                    return;
+                  }
+                  if (!termsAccepted) {
+                    setAccountError('Debes aceptar que tus datos permanecen en este dispositivo.');
+                    return;
+                  }
+                  setAccountError('');
+                }
                 if (step === 2 && !seedSaved) {
                   alert('Por favor confirma haber guardado tu frase de recuperación.');
                   return;

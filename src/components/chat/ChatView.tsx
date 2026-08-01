@@ -9,6 +9,7 @@ import { AGENTS_CATALOG } from '../../data/agentsData';
 import { AudioService } from '../../services/audioService';
 import { StorageService } from '../../services/storageService';
 import { ApiService } from '../../services/apiService';
+import { consumeChatContext } from '../../services/knowledgeSync';
 import { useEngineConfig } from '../../context/EngineConfigContext';
 import { AGENT_VOICE_PROFILES } from '../../data/agentVoices';
 import ReactMarkdown from 'react-markdown';
@@ -135,15 +136,35 @@ export const ChatView: React.FC<ChatViewProps> = ({
     StorageService.clearAgentMessages(activeAgentId);
   }, [activeAgentId]);
 
-  // Micrófono: Whisper local (/stt) si hay backend; si no, Web Speech es-PE
+  // Micrófono: dictado en vivo → redacta en el input mientras hablas
   const handleToggleMic = async () => {
     if (isListening) {
       AudioService.stopListening();
       setIsListening(false);
-    } else {
-      setIsListening(true);
+      return;
+    }
+    setIsListening(true);
+    const baseText = inputText.trim();
+    const ok = AudioService.startLiveDictation(
+      (transcript) => {
+        const spoken = transcript.trim();
+        if (!spoken) return;
+        setInputText(baseText ? `${baseText} ${spoken}` : spoken);
+      },
+      () => setIsListening(false),
+      () => setIsListening(false)
+    );
+    if (!ok) {
+      // Fallback: Whisper por chunks si no hay Web Speech
       const mode = await AudioService.startWhisperOrSpeech(
-        (transcript) => setInputText(transcript),
+        (transcript) => {
+          const spoken = transcript.trim();
+          if (!spoken) return;
+          setInputText((prev) => {
+            const p = prev.trim();
+            return p ? `${p} ${spoken}` : spoken;
+          });
+        },
         () => setIsListening(false),
         () => setIsListening(false)
       );
@@ -229,12 +250,14 @@ export const ChatView: React.FC<ChatViewProps> = ({
       addMessage(targetAgentId, placeholderMsg);
       await new Promise(r => setTimeout(r, 400));
 
+      const panelInject = consumeChatContext(targetAgentId);
+      const baseContext = userProfile.customContext || '';
       const data = await ApiService.sendChatMessage({
         prompt: userMsgText,
         agentId: targetAgentId,
         manualAgent: !autoAgent,
         confirmUpgrade: confirmUpgrade || false,
-        userContext: userProfile.customContext || "",
+        userContext: panelInject ? `${baseContext}${panelInject}` : baseContext,
         userProfile,
         healthProfile,
         locationProfile,

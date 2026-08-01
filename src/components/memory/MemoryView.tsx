@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StorageService } from '../../services/storageService';
+import { getAiPanelEvents, KNOWLEDGE_UPDATED_EVENT } from '../../services/knowledgeSync';
 import { KnowledgeEdge, KnowledgeNode } from '../../types';
-import { Network, Clock, Database, Layers, ShieldCheck } from 'lucide-react';
+import { Network, Clock, Database, Layers, ShieldCheck, GitBranch } from 'lucide-react';
 import { AGENTS_CATALOG } from '../../data/agentsData';
+import { KnowledgeVaultPanel } from './KnowledgeVaultPanel';
 
 const TYPE_COLOR: Record<KnowledgeNode['type'], string> = {
   user: '#B8924A',
@@ -11,7 +13,14 @@ const TYPE_COLOR: Record<KnowledgeNode['type'], string> = {
   condition: '#FF9500',
   location: '#4A9B9D',
   risk: '#C0392B',
-  agent: '#5856D6'
+  agent: '#5856D6',
+  note: '#8E8E93',
+  event: '#34C759',
+  habit: '#FF9500',
+  project: '#5856D6',
+  document: '#B8924A',
+  mail: '#007AFF',
+  preference: '#4A9B9D'
 };
 
 interface SimNode extends KnowledgeNode {
@@ -24,6 +33,12 @@ interface SimNode extends KnowledgeNode {
 function buildTimeline() {
   const profile = StorageService.getProfile();
   const health = StorageService.getHealth();
+  const panelEvents = getAiPanelEvents(12).map((ev) => ({
+    at: ev.at.slice(0, 16).replace('T', ' '),
+    agent: ev.agentId ? ev.agentId.toUpperCase() : 'Panel',
+    text: ev.text,
+    sender: 'system' as const
+  }));
   const messages = AGENTS_CATALOG.flatMap((a) =>
     StorageService.getAgentMessages(a.id).slice(-3).map((m) => ({
       at: m.timestamp,
@@ -48,14 +63,62 @@ function buildTimeline() {
       text: `Medicamento: ${m.name} ${m.dose}`,
       sender: 'system' as const
     })),
+    ...panelEvents,
     ...events,
     ...messages.slice(-12)
   ];
 }
 
 export const MemoryView: React.FC = () => {
-  const { nodes, edges } = StorageService.getKnowledgeGraph();
   const profile = StorageService.getProfile();
+
+  const buildTree = (graphNodes: KnowledgeNode[]) => {
+    const health = StorageService.getHealth();
+    const loc = StorageService.getLocation();
+    const habits = StorageService.getHabits();
+    return {
+      root: StorageService.getProfile().name || 'Usuario',
+      branches: [
+        {
+          title: 'Salud',
+          leaves: [
+            ...health.allergies.map((a) => `Alergia: ${a}`),
+            ...health.chronicConditions.map((c) => `Condición: ${c}`),
+            ...health.currentMedications.map(
+              (m) => `${m.name} ${m.dose}${m.purpose ? ` · ${m.purpose}` : ''}`
+            )
+          ]
+        },
+        {
+          title: 'Lugar',
+          leaves: [`${loc.city}${loc.district ? `, ${loc.district}` : ''}`, loc.country, loc.timezone]
+        },
+        {
+          title: 'Hábitos',
+          leaves: habits.map((h) => `${h.title} @ ${h.time} (${h.frequency})`)
+        },
+        {
+          title: 'Grafo',
+          leaves: graphNodes.map((n) => `${n.type}: ${n.label}${n.details ? ` — ${n.details}` : ''}`)
+        },
+        {
+          title: 'Actividad IA',
+          leaves: getAiPanelEvents(8).map((e) => e.text)
+        },
+        {
+          title: 'Agentes',
+          leaves: AGENTS_CATALOG.map((a) => `${a.name} — ${a.specialty}`)
+        }
+      ]
+    };
+  };
+
+  const [graph, setGraph] = useState(() => StorageService.getKnowledgeGraph());
+  const [timeline, setTimeline] = useState(() => buildTimeline());
+  const [knowledgeTree, setKnowledgeTree] = useState(() =>
+    buildTree(StorageService.getKnowledgeGraph().nodes)
+  );
+  const { nodes, edges } = graph;
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [selected, setSelected] = useState<KnowledgeNode | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
@@ -63,7 +126,17 @@ export const MemoryView: React.FC = () => {
   const edgesRef = useRef<KnowledgeEdge[]>(edges);
   const hoverRef = useRef<string | null>(null);
   const selectedRef = useRef<KnowledgeNode | null>(null);
-  const timeline = useMemo(() => buildTimeline(), []);
+
+  useEffect(() => {
+    const onUpd = () => {
+      const next = StorageService.getKnowledgeGraph();
+      setGraph(next);
+      setTimeline(buildTimeline());
+      setKnowledgeTree(buildTree(next.nodes));
+    };
+    window.addEventListener(KNOWLEDGE_UPDATED_EVENT, onUpd);
+    return () => window.removeEventListener(KNOWLEDGE_UPDATED_EVENT, onUpd);
+  }, []);
 
   useEffect(() => {
     hoverRef.current = hoverId;
@@ -127,7 +200,7 @@ export const MemoryView: React.FC = () => {
           const dist = Math.sqrt(dx * dx + dy * dy) || 1;
           const min = 90;
           if (dist < min) {
-            const f = ((min - dist) / min) * 0.6;
+            const f = ((min - dist) / min) * 0.25;
             dx /= dist;
             dy /= dist;
             a.vx -= dx * f;
@@ -144,17 +217,20 @@ export const MemoryView: React.FC = () => {
         const dx = b.x - a.x;
         const dy = b.y - a.y;
         const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-        const f = (dist - 140) * 0.01;
+        const f = (dist - 160) * 0.004;
         a.vx += (dx / dist) * f;
         a.vy += (dy / dist) * f;
         b.vx -= (dx / dist) * f;
         b.vy -= (dy / dist) * f;
       }
       for (const n of sims) {
-        n.vx += (w / 2 - n.x) * 0.002;
-        n.vy += (h / 2 - n.y) * 0.002;
-        n.vx *= 0.85;
-        n.vy *= 0.85;
+        n.vx += (w / 2 - n.x) * 0.0008;
+        n.vy += (h / 2 - n.y) * 0.0008;
+        // Amortiguación fuerte para evitar el “temblor” del grafo
+        n.vx *= 0.72;
+        n.vy *= 0.72;
+        if (Math.abs(n.vx) < 0.02) n.vx = 0;
+        if (Math.abs(n.vy) < 0.02) n.vy = 0;
         n.x += n.vx;
         n.y += n.vy;
         n.x = Math.max(40, Math.min(w - 40, n.x));
@@ -270,6 +346,8 @@ export const MemoryView: React.FC = () => {
         </div>
       </details>
 
+      <KnowledgeVaultPanel />
+
       <div className="maru-panel !p-0 overflow-hidden">
         <div className="flex items-center justify-between px-4 py-3 border-b border-[var(--maru-border-soft)]">
           <div className="flex items-center gap-2 text-sm font-display font-semibold">
@@ -297,6 +375,31 @@ export const MemoryView: React.FC = () => {
               </div>
             </div>
           )}
+        </div>
+      </div>
+
+      <div className="maru-panel space-y-3">
+        <div className="flex items-center gap-2 text-sm font-display font-semibold border-b border-[var(--maru-border-soft)] pb-2">
+          <GitBranch size={16} className="text-[#5A8F6B]" /> Árbol de lo que MARU sabe de ti
+        </div>
+        <div className="pl-2">
+          <div className="font-bold text-[var(--maru-text)] mb-2">🌱 {knowledgeTree.root}</div>
+          <div className="space-y-3 border-l-2 border-[var(--maru-border-soft)] ml-2 pl-4">
+            {knowledgeTree.branches.map((b) => (
+              <div key={b.title}>
+                <div className="text-xs font-bold uppercase tracking-wide text-[var(--maru-primary)] mb-1">
+                  ├─ {b.title}
+                </div>
+                <ul className="space-y-1">
+                  {(b.leaves.length ? b.leaves : ['(sin datos aún)']).map((leaf, i) => (
+                    <li key={`${b.title}-${i}`} className="text-sm text-[var(--maru-text-muted)] pl-3">
+                      └─ {leaf}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

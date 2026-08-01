@@ -5,6 +5,7 @@ import { AgentId } from '../../types';
 import { Volume2, MessageSquare, CheckCircle2 } from 'lucide-react';
 import { AudioService } from '../../services/audioService';
 import { useEngineConfig } from '../../context/EngineConfigContext';
+import { notifyPanelChange } from '../../services/knowledgeSync';
 
 interface AgentsViewProps {
   activeAgentId: AgentId;
@@ -19,6 +20,16 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
 }) => {
   const { enabledAgents } = useEngineConfig();
   const agents = AGENTS_CATALOG.filter((a) => enabledAgents.includes(a.id));
+
+  const selectAgent = (id: AgentId) => {
+    onSelectAgent(id);
+    const agent = AGENTS_CATALOG.find((a) => a.id === id);
+    notifyPanelChange({
+      domain: 'settings',
+      summary: `Agente enfocado desde panel Agentes: ${agent?.name || id}`,
+      agentId: id
+    });
+  };
 
   return (
     <div className="maru-page space-y-8">
@@ -62,7 +73,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
                     agentId={agent.id}
                     size={110}
                     isSelected={isSelected}
-                    onClick={() => onSelectAgent(agent.id)}
+                    onClick={() => selectAgent(agent.id)}
                   />
                 </div>
 
@@ -109,7 +120,7 @@ export const AgentsView: React.FC<AgentsViewProps> = ({
 
                 <button
                   onClick={() => {
-                    onSelectAgent(agent.id);
+                    selectAgent(agent.id);
                     onNavigateToChat();
                   }}
                   className={`flex-1 ${isSelected ? 'maru-btn-primary' : 'maru-btn-secondary'}`}

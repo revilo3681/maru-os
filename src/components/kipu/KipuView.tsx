@@ -1,8 +1,9 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Play, Save, Code2, Terminal, FolderPlus, FilePlus2, Sparkles, Folder } from 'lucide-react';
 import { ChatView } from '../chat/ChatView';
 import { UserProfile, HealthProfile, LocationProfile } from '../../types';
 import { ApiService } from '../../services/apiService';
+import { syncKipuProjects } from '../../services/knowledgeSync';
 
 interface KipuViewProps {
   userProfile: UserProfile;
@@ -77,6 +78,24 @@ export const KipuView: React.FC<KipuViewProps> = ({ userProfile, healthProfile, 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(projects));
   }, [projects]);
+
+  // Sync graph only when project structure changes (not every keystroke / not on first mount)
+  const projectMeta = useMemo(
+    () => projects.map((p) => `${p.id}:${p.name}:${p.files.length}`).join('|'),
+    [projects]
+  );
+  const kipuSyncReady = useRef(false);
+  useEffect(() => {
+    if (!kipuSyncReady.current) {
+      kipuSyncReady.current = true;
+      return;
+    }
+    syncKipuProjects(
+      projects,
+      `Proyectos Kipu: ${projects.map((p) => p.name).join(', ')}`
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: structure fingerprint only
+  }, [projectMeta]);
 
   const updateActiveContent = (content: string) => {
     if (!project || !activeFile) return;

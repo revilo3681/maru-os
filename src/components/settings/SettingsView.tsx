@@ -14,13 +14,20 @@ import {
   Zap,
   Scale,
   Eye,
-  Cloud
+  Cloud,
+  HardDrive,
+  Clock,
+  Activity,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
+import { applyThemeMode } from '../../services/themeService';
 import { AppSettings, AgentId } from '../../types';
 import { ApiService, ModelsResponse } from '../../services/apiService';
 import { AGENTS_CATALOG } from '../../data/agentsData';
 import { useEngineConfig } from '../../context/EngineConfigContext';
+import { KnowledgeVaultPanel } from '../memory/KnowledgeVaultPanel';
 
 interface SettingsViewProps {
   onWipeData: () => void;
@@ -48,9 +55,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
   const [models, setModels] = useState<ModelsResponse | null>(null);
   const [checkingConnection, setCheckingConnection] = useState(false);
   const [lastCheckResult, setLastCheckResult] = useState<'ok' | 'fail' | null>(null);
+  const [latencyMs, setLatencyMs] = useState<number | null>(null);
 
   const fetchModels = useCallback(async () => {
+    const t0 = performance.now();
     const res = await ApiService.getModels();
+    setLatencyMs(Math.round(performance.now() - t0));
     setModels(res);
     return res;
   }, []);
@@ -67,6 +77,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
     setCheckingConnection(false);
     setTimeout(() => setLastCheckResult(null), 5000);
   };
+
+  const account = StorageService.getAccount();
+  const daysWithMaru = (() => {
+    if (!account?.createdAt) return 0;
+    const ms = Date.now() - new Date(account.createdAt).getTime();
+    return Math.max(0, Math.floor(ms / (1000 * 60 * 60 * 24)));
+  })();
+  const memoryEstimateMb = (() => {
+    try {
+      let total = 0;
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (!k) continue;
+        total += (localStorage.getItem(k) || '').length * 2;
+      }
+      return Math.max(1, Math.round(total / (1024 * 1024) * 10) / 10);
+    } catch {
+      return 0;
+    }
+  })();
 
   const ollamaConnected = models?.ollamaConnected ?? false;
   const installedModels = models?.installedModels ?? [];
@@ -96,18 +126,42 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
 
   const handleToggleAgent = (agentId: AgentId) => {
     const current = engineConfig.enabledAgents;
-    const next = current.includes(agentId)
+    const turningOff = current.includes(agentId);
+    if (turningOff && current.length <= 1) {
+      // Mínimo 1 especialista activo
+      return;
+    }
+    const next = turningOff
       ? current.filter((id) => id !== agentId)
       : [...current, agentId];
-    engineConfig.save({ enabledAgents: next });
+    void engineConfig.save({ enabledAgents: next });
+    void import('../../services/knowledgeSync').then(({ syncAgentsChange }) => {
+      syncAgentsChange(
+        next,
+        turningOff
+          ? `Especialista desactivado: ${agentId}. Activos: ${next.join(', ')}`
+          : `Especialista activado: ${agentId}. Activos: ${next.join(', ')}`
+      );
+    });
   };
-
-  const account = StorageService.getAccount();
 
   const handleToggleSettings = (key: keyof AppSettings) => {
     const updated = { ...settings, [key]: !settings[key] };
     StorageService.saveSettings(updated);
     setSettings(updated);
+    void import('../../services/knowledgeSync').then(({ syncSettingsChange }) => {
+      syncSettingsChange(`Ajuste «${String(key)}» → ${updated[key] ? 'activado' : 'desactivado'}`);
+    });
+  };
+
+  const handleThemeMode = (themeMode: AppSettings['themeMode']) => {
+    const updated = { ...settings, themeMode };
+    StorageService.saveSettings(updated);
+    applyThemeMode(themeMode);
+    setSettings(updated);
+    void import('../../services/knowledgeSync').then(({ syncSettingsChange }) => {
+      syncSettingsChange(`Tema de interfaz: ${themeMode}`);
+    });
   };
 
   const handleExportJSON = () => {
@@ -263,6 +317,61 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
         )}
       </div>
 
+      {/* Detalles del sistema (antes en Inicio) */}
+      <div className="maru-panel space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Activity className="text-[#4A9B9D]" size={20} />
+          Detalles del sistema
+        </h3>
+        <p className="text-xs text-[var(--maru-text-muted)]">
+          Métricas locales del motor. Antes aparecían en Inicio; ahora viven aquí en Ajustes.
+        </p>
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2">
+          {[
+            {
+              icon: Users,
+              label: 'Agentes activos',
+              value: String(engineConfig.enabledAgents.length),
+              accent: '#007AFF'
+            },
+            {
+              icon: HardDrive,
+              label: 'Memoria local',
+              value: `${memoryEstimateMb} MB`,
+              accent: '#5856D6'
+            },
+            {
+              icon: Zap,
+              label: 'Latencia Ollama',
+              value: latencyMs != null ? `${latencyMs} ms` : '—',
+              accent: '#FF9500'
+            },
+            {
+              icon: Clock,
+              label: 'Con MARU OS',
+              value: daysWithMaru === 0 ? 'Hoy' : `${daysWithMaru} día${daysWithMaru === 1 ? '' : 's'}`,
+              accent: '#5A8F6B'
+            }
+          ].map((m) => {
+            const Icon = m.icon;
+            return (
+              <div key={m.label} className="p-3 rounded-xl bg-[#F2F2F7] flex items-center gap-3">
+                <div
+                  className="p-2 rounded-[10px]"
+                  style={{ backgroundColor: `${m.accent}18`, color: m.accent }}
+                >
+                  <Icon size={16} />
+                </div>
+                <div>
+                  <div className="text-base font-bold font-mono text-[var(--maru-text)]">{m.value}</div>
+                  <div className="text-[10px] text-[var(--maru-text-muted)]">{m.label}</div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
       {/* Especialistas Activos (Fase 2 · item 2.2) */}
       <div className="maru-panel space-y-4">
         <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
@@ -271,6 +380,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
         </h3>
         <p className="text-xs text-[var(--maru-text-muted)]">
           Activa o desactiva a los 7 especialistas de MARU. Los agentes desactivados no participarán del enrutado ni de los paneles.
+          Siempre debe quedar al menos 1 activo.
         </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -297,7 +407,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
                 </div>
                 <button
                   onClick={() => handleToggleAgent(agent.id)}
-                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+                  disabled={enabled && engineConfig.enabledAgents.length <= 1}
+                  title={
+                    enabled && engineConfig.enabledAgents.length <= 1
+                      ? 'Debe quedar al menos 1 especialista activo'
+                      : undefined
+                  }
+                  className={`w-12 h-6 rounded-full transition-colors relative p-0.5 shrink-0 disabled:opacity-40 ${
                     enabled ? 'bg-[#34C759]' : 'bg-[#E5E5EA]'
                   }`}
                 >
@@ -312,6 +428,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ onWipeData }) => {
           })}
         </div>
       </div>
+
+      {/* Apariencia — tema claro / oscuro */}
+      <div className="maru-panel space-y-4">
+        <h3 className="font-display font-semibold text-lg text-[var(--maru-text)] border-b border-[var(--maru-border-soft)] pb-2 flex items-center gap-2">
+          <Sun className="text-[var(--maru-gold)]" size={20} />
+          Apariencia
+        </h3>
+        <p className="text-xs text-[var(--maru-text-muted)]">
+          Elige el tema de la interfaz. Se guarda en este dispositivo.
+        </p>
+        <div className="flex flex-wrap gap-2">
+          {([
+            { mode: 'day' as const, label: 'Claro', icon: Sun },
+            { mode: 'night' as const, label: 'Oscuro', icon: Moon }
+          ]).map(({ mode, label, icon: Icon }) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => handleThemeMode(mode)}
+              className={`inline-flex items-center gap-2 px-4 py-2.5 rounded-[10px] text-sm font-display font-semibold border transition-colors ${
+                settings.themeMode === mode
+                  ? 'border-[var(--maru-primary)] bg-[var(--maru-primary-soft)] text-[var(--maru-primary)]'
+                  : 'border-[var(--maru-border)] bg-[var(--maru-surface)] text-[var(--maru-text-muted)] hover:border-[var(--maru-primary)]'
+              }`}
+            >
+              <Icon size={16} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <KnowledgeVaultPanel />
 
       {/* Privacidad & Modo Efímero */}
       <div className="maru-panel space-y-4">

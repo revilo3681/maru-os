@@ -2,11 +2,33 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { ApiService, EngineConfig } from '../services/apiService';
 import { AGENTS_CATALOG } from '../data/agentsData';
 
+const LOCAL_KEY = 'maru_engine_config_local';
+
 const DEFAULT_CONFIG: EngineConfig = {
   engineMode: 'manual',
   manualModel: 'gemma4:e2b-q4',
   enabledAgents: AGENTS_CATALOG.map((a) => a.id)
 };
+
+function loadLocalConfig(): EngineConfig | null {
+  try {
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as EngineConfig;
+    if (!parsed.enabledAgents?.length) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function persistLocal(cfg: EngineConfig) {
+  try {
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(cfg));
+  } catch {
+    /* ignore */
+  }
+}
 
 export interface EngineConfigContextValue extends EngineConfig {
   /** true mientras se carga la configuración inicial del backend */
@@ -37,13 +59,21 @@ export const EngineConfigProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, []);
 
   const refresh = useCallback(async () => {
+    const local = loadLocalConfig();
+    if (local && mountedRef.current) setConfig(local);
     const remote = await ApiService.getConfig();
     if (remote && mountedRef.current) {
-      setConfig({
+      const agents =
+        remote.enabledAgents?.length
+          ? remote.enabledAgents
+          : local?.enabledAgents ?? DEFAULT_CONFIG.enabledAgents;
+      const next = {
         engineMode: remote.engineMode ?? DEFAULT_CONFIG.engineMode,
         manualModel: remote.manualModel ?? DEFAULT_CONFIG.manualModel,
-        enabledAgents: remote.enabledAgents ?? DEFAULT_CONFIG.enabledAgents
-      });
+        enabledAgents: agents
+      };
+      setConfig(next);
+      persistLocal(next);
     }
   }, []);
 
@@ -55,15 +85,27 @@ export const EngineConfigProvider: React.FC<{ children: React.ReactNode }> = ({ 
   }, [refresh]);
 
   const save = useCallback(async (partial: Partial<EngineConfig>) => {
-    // Actualización optimista para que la UI responda al instante
-    setConfig((prev) => ({ ...prev, ...partial }));
+    setConfig((prev) => {
+      const next = { ...prev, ...partial };
+      if (!next.enabledAgents?.length) {
+        next.enabledAgents = [prev.enabledAgents[0] || AGENTS_CATALOG[0].id];
+      }
+      persistLocal(next);
+      return next;
+    });
     const persisted = await ApiService.saveConfig(partial);
     if (persisted && mountedRef.current) {
-      setConfig({
+      const agents =
+        persisted.enabledAgents?.length
+          ? persisted.enabledAgents
+          : loadLocalConfig()?.enabledAgents ?? DEFAULT_CONFIG.enabledAgents;
+      const next = {
         engineMode: persisted.engineMode ?? DEFAULT_CONFIG.engineMode,
         manualModel: persisted.manualModel ?? DEFAULT_CONFIG.manualModel,
-        enabledAgents: persisted.enabledAgents ?? DEFAULT_CONFIG.enabledAgents
-      });
+        enabledAgents: agents
+      };
+      setConfig(next);
+      persistLocal(next);
     }
   }, []);
 

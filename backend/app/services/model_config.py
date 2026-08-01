@@ -161,7 +161,16 @@ def save_config(
         if manual_model is not None:
             config["manualModel"] = canonical_model_id(manual_model)
         if enabled_agents is not None:
-            config["enabledAgents"] = [a for a in enabled_agents if a in ALL_AGENT_IDS] or list(ALL_AGENT_IDS)
+            cleaned = [a for a in enabled_agents if a in ALL_AGENT_IDS]
+            # Mínimo 1 agente activo: nunca resetear a "todos" si llega lista vacía
+            if cleaned:
+                config["enabledAgents"] = cleaned
+            elif not config.get("enabledAgents"):
+                config["enabledAgents"] = [ALL_AGENT_IDS[0]]
+            # si cleaned vacío pero ya había agentes, conservar el primero actual
+            else:
+                prev = [a for a in config.get("enabledAgents", []) if a in ALL_AGENT_IDS]
+                config["enabledAgents"] = prev[:1] or [ALL_AGENT_IDS[0]]
 
         os.makedirs(os.path.dirname(os.path.abspath(_CONFIG_PATH)), exist_ok=True)
         with open(_CONFIG_PATH, "w", encoding="utf-8") as f:

@@ -1,10 +1,32 @@
 import React, { useMemo, useState } from 'react';
 import {
   Calendar as CalendarIcon, Plus, ChevronLeft, ChevronRight,
-  CheckSquare, Square, Flame, Pill, Repeat
+  CheckSquare, Square, Flame, Pill, Repeat, Pencil, Trash2
 } from 'lucide-react';
 import { StorageService } from '../../services/storageService';
-import { CalendarEvent, Habit } from '../../types';
+import { syncCalendarChange, syncHabitsChange } from '../../services/knowledgeSync';
+import { CalendarEvent, Habit, HabitFrequencyMode } from '../../types';
+
+const FREQ_OPTIONS: { mode: HabitFrequencyMode; label: string }[] = [
+  { mode: 'daily', label: 'Diario' },
+  { mode: 'weekdays', label: 'Lun–Vie' },
+  { mode: 'weekly', label: 'Semanal' },
+  { mode: 'custom_days', label: 'Días a elegir' },
+  { mode: 'always', label: 'Por siempre' }
+];
+
+const DAY_LABELS = ['D', 'L', 'M', 'X', 'J', 'V', 'S'];
+
+function frequencyLabel(mode: HabitFrequencyMode, days?: number[]): string {
+  if (mode === 'daily') return 'Diario';
+  if (mode === 'weekdays') return 'Lun–Vie';
+  if (mode === 'weekly') return 'Semanal';
+  if (mode === 'always') return 'Por siempre';
+  if (mode === 'custom_days' && days?.length) {
+    return days.map((d) => ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'][d]).join(', ');
+  }
+  return 'Personalizado';
+}
 
 type ViewMode = 'day' | 'week' | 'month' | 'year';
 type PanelTab = 'agenda' | 'rutinas';
@@ -45,13 +67,16 @@ export const CalendarView: React.FC<{ initialTab?: PanelTab }> = ({ initialTab =
   const [type, setType] = useState<CalendarEvent['type']>('appointment');
   const [habitTitle, setHabitTitle] = useState('');
   const [habitTime, setHabitTime] = useState('08:00');
+  const [habitFreqMode, setHabitFreqMode] = useState<HabitFrequencyMode>('daily');
+  const [habitDays, setHabitDays] = useState<number[]>([1, 2, 3, 4, 5]);
+  const [editingHabitId, setEditingHabitId] = useState<string | null>(null);
 
   const todayStr = toISODate(new Date());
   const cursorStr = toISODate(cursor);
 
   const persistEvents = (next: CalendarEvent[]) => {
     setEvents(next);
-    StorageService.saveCalendarEvents(next);
+    syncCalendarChange(next, `Agenda actualizada (${next.length} eventos)`);
   };
 
   // Sincronizar hábitos/medicación del día en la agenda visual
@@ -117,8 +142,8 @@ export const CalendarView: React.FC<{ initialTab?: PanelTab }> = ({ initialTab =
       type,
       completed: false
     };
-    StorageService.saveCalendarEvent(newEv);
-    setEvents(StorageService.getCalendarEvents());
+    const next = [...StorageService.getCalendarEvents(), newEv];
+    persistEvents(next);
     setTitle('');
   };
 
@@ -130,23 +155,61 @@ export const CalendarView: React.FC<{ initialTab?: PanelTab }> = ({ initialTab =
   const handleAddHabit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!habitTitle.trim()) return;
-    const newH: Habit = {
-      id: `h-${Date.now()}`,
-      title: habitTitle.trim(),
-      time: habitTime,
-      frequency: 'Diario',
-      completed: false,
-      streak: 1,
-      category: 'custom'
-    };
-    const updated = [...StorageService.getHabits(), newH];
-    StorageService.saveHabits(updated);
-    setHabits(updated);
+    const freq = frequencyLabel(habitFreqMode, habitDays);
+    const base = StorageService.getHabits();
+    if (editingHabitId) {
+      const updated = base.map((h) =>
+        h.id === editingHabitId
+          ? {
+              ...h,
+              title: habitTitle.trim(),
+              time: habitTime,
+              frequency: freq,
+              frequencyMode: habitFreqMode,
+              daysOfWeek: habitFreqMode === 'custom_days' ? habitDays : undefined
+            }
+          : h
+      );
+      syncHabitsChange(updated, `Rutina editada: ${habitTitle.trim()}`);
+      setHabits(updated);
+      setEditingHabitId(null);
+    } else {
+      const newH: Habit = {
+        id: `h-${Date.now()}`,
+        title: habitTitle.trim(),
+        time: habitTime,
+        frequency: freq,
+        frequencyMode: habitFreqMode,
+        daysOfWeek: habitFreqMode === 'custom_days' ? habitDays : undefined,
+        completed: false,
+        streak: 1,
+        category: 'custom'
+      };
+      const updated = [...base, newH];
+      syncHabitsChange(updated, `Nueva rutina: ${newH.title}`);
+      setHabits(updated);
+    }
     setHabitTitle('');
+    setHabitFreqMode('daily');
   };
 
   const handleToggleHabit = (id: string) => {
     setHabits(StorageService.toggleHabit(id));
+  };
+
+  const handleDeleteHabit = (id: string) => {
+    const updated = StorageService.getHabits().filter((h) => h.id !== id);
+    syncHabitsChange(updated, 'Rutina eliminada');
+    setHabits(updated);
+    if (editingHabitId === id) setEditingHabitId(null);
+  };
+
+  const startEditHabit = (h: Habit) => {
+    setEditingHabitId(h.id);
+    setHabitTitle(h.title);
+    setHabitTime(h.time);
+    setHabitFreqMode(h.frequencyMode || 'daily');
+    setHabitDays(h.daysOfWeek || [1, 2, 3, 4, 5]);
   };
 
   const headerLabel =
@@ -399,37 +462,118 @@ export const CalendarView: React.FC<{ initialTab?: PanelTab }> = ({ initialTab =
           </div>
           <div className="space-y-2">
             {habits.map((h) => (
-              <button
+              <div
                 key={h.id}
-                onClick={() => handleToggleHabit(h.id)}
-                className={`w-full p-4 rounded-xl flex items-center justify-between text-left ${
+                className={`w-full p-4 rounded-xl flex items-center justify-between gap-2 ${
                   h.completed ? 'bg-[#34C759]/10 border border-[#34C759]/30' : 'bg-[var(--maru-surface-muted)]'
                 }`}
               >
-                <div className="flex items-center gap-3">
-                  {h.completed ? <CheckSquare className="text-[#34C759]" size={20} /> : <Square size={20} className="text-[var(--maru-text-muted)]" />}
-                  <div>
-                    <div className={`text-sm font-semibold ${h.completed ? 'line-through text-[var(--maru-text-muted)]' : ''}`}>{h.title}</div>
+                <button
+                  type="button"
+                  onClick={() => handleToggleHabit(h.id)}
+                  className="flex items-center gap-3 text-left flex-1 min-w-0"
+                >
+                  {h.completed ? <CheckSquare className="text-[#34C759] shrink-0" size={20} /> : <Square size={20} className="text-[var(--maru-text-muted)] shrink-0" />}
+                  <div className="min-w-0">
+                    <div className={`text-sm font-semibold truncate ${h.completed ? 'line-through text-[var(--maru-text-muted)]' : ''}`}>{h.title}</div>
                     <div className="text-[11px] font-mono text-[var(--maru-text-muted)]">{h.time} · {h.frequency}</div>
                   </div>
+                </button>
+                <div className="flex items-center gap-1 shrink-0">
+                  <div className="flex items-center gap-1 text-xs font-bold text-[#FF9500] bg-[#FF9500]/10 px-2 py-1 rounded-md">
+                    <Flame size={14} /> {h.streak}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => startEditHabit(h)}
+                    className="p-2 rounded-lg hover:bg-white text-[var(--maru-primary)]"
+                    title="Editar hora / días"
+                  >
+                    <Pencil size={14} />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteHabit(h.id)}
+                    className="p-2 rounded-lg hover:bg-red-50 text-[#C0392B]"
+                    title="Quitar rutina"
+                  >
+                    <Trash2 size={14} />
+                  </button>
                 </div>
-                <div className="flex items-center gap-1 text-xs font-bold text-[#FF9500] bg-[#FF9500]/10 px-2 py-1 rounded-md">
-                  <Flame size={14} /> {h.streak}
-                </div>
-              </button>
+              </div>
             ))}
+            {habits.length === 0 && (
+              <p className="text-xs text-[var(--maru-text-muted)] py-2">
+                No hay rutinas. Puedes quitar las predeterminadas y crear las tuyas.
+              </p>
+            )}
           </div>
-          <form onSubmit={handleAddHabit} className="flex flex-wrap gap-2 pt-3 border-t border-[var(--maru-border-soft)]">
-            <input type="time" value={habitTime} onChange={(e) => setHabitTime(e.target.value)} className="maru-field !w-auto font-mono" />
-            <input
-              value={habitTitle}
-              onChange={(e) => setHabitTitle(e.target.value)}
-              placeholder="Nueva rutina..."
-              className="maru-field flex-1 min-w-[180px]"
-            />
-            <button type="submit" className="maru-btn-primary">
-              <Plus size={16} /> Agregar rutina
-            </button>
+          <form onSubmit={handleAddHabit} className="space-y-3 pt-3 border-t border-[var(--maru-border-soft)]">
+            <div className="flex flex-wrap gap-2">
+              <input type="time" value={habitTime} onChange={(e) => setHabitTime(e.target.value)} className="maru-field !w-auto font-mono" />
+              <input
+                value={habitTitle}
+                onChange={(e) => setHabitTitle(e.target.value)}
+                placeholder={editingHabitId ? 'Editar rutina…' : 'Nueva rutina…'}
+                className="maru-field flex-1 min-w-[180px]"
+              />
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {FREQ_OPTIONS.map((opt) => (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  onClick={() => setHabitFreqMode(opt.mode)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border ${
+                    habitFreqMode === opt.mode
+                      ? 'bg-[#1E3A5F] text-white border-[#1E3A5F]'
+                      : 'bg-white text-[var(--maru-text-muted)] border-[var(--maru-border-soft)]'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            {habitFreqMode === 'custom_days' && (
+              <div className="flex flex-wrap gap-1">
+                {DAY_LABELS.map((label, idx) => {
+                  const on = habitDays.includes(idx);
+                  return (
+                    <button
+                      key={label}
+                      type="button"
+                      onClick={() =>
+                        setHabitDays((prev) =>
+                          on ? prev.filter((d) => d !== idx) : [...prev, idx].sort()
+                        )
+                      }
+                      className={`w-8 h-8 rounded-lg text-xs font-bold ${
+                        on ? 'bg-[#4A9B9D] text-white' : 'bg-[var(--maru-surface-muted)] text-[var(--maru-text-muted)]'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            <div className="flex flex-wrap gap-2">
+              <button type="submit" className="maru-btn-primary">
+                <Plus size={16} /> {editingHabitId ? 'Guardar cambios' : 'Agregar rutina'}
+              </button>
+              {editingHabitId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingHabitId(null);
+                    setHabitTitle('');
+                  }}
+                  className="maru-btn-secondary"
+                >
+                  Cancelar
+                </button>
+              )}
+            </div>
           </form>
         </div>
       )}

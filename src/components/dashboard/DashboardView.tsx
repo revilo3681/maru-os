@@ -6,20 +6,22 @@ import {
   CheckSquare,
   Square,
   Send,
-  Users,
-  HardDrive,
-  Zap,
   Clock
 } from 'lucide-react';
-import { UserProfile, HealthProfile, LocationProfile, Habit, CalendarEvent } from '../../types';
+import { UserProfile, HealthProfile, LocationProfile, Habit, CalendarEvent, AppSettings } from '../../types';
 import { StorageService } from '../../services/storageService';
 import { FraseDelDia } from './FraseDelDia';
 import { PomodoroTimer } from './PomodoroTimer';
+import { UserPersonalization } from './UserPersonalization';
+import { syncDashboardHabit } from '../../services/knowledgeSync';
 
 interface DashboardViewProps {
   userProfile: UserProfile;
   healthProfile: HealthProfile;
   locationProfile: LocationProfile;
+  settings: AppSettings;
+  onProfileChange: (p: UserProfile) => void;
+  onSettingsChange: (s: AppSettings) => void;
   onNavigateToChat: (initialPrompt?: string) => void;
   onTriggerEmergency: () => void;
 }
@@ -28,6 +30,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   userProfile,
   healthProfile: _healthProfile,
   locationProfile,
+  settings,
+  onProfileChange,
+  onSettingsChange,
   onNavigateToChat,
   onTriggerEmergency
 }) => {
@@ -43,8 +48,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const progressPercent = habits.length > 0 ? Math.round((completedHabitsCount / habits.length) * 100) : 0;
 
   const handleToggleHabit = (id: string) => {
+    const before = habits.find((h) => h.id === id);
     const updated = StorageService.toggleHabit(id);
     setHabits(updated);
+    const after = updated.find((h) => h.id === id);
+    if (before && after) {
+      syncDashboardHabit(after.title, after.completed);
+    }
   };
 
   const [events] = useState<CalendarEvent[]>(() => StorageService.getCalendarEvents());
@@ -71,13 +81,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           </p>
         </div>
 
-        <button
-          onClick={onTriggerEmergency}
-          className="maru-btn-secondary border-red-200 text-[var(--maru-danger)] hover:bg-red-50 self-start md:self-auto"
-        >
-          <AlertTriangle size={16} />
-          <span>Ayuda y emergencias</span>
-        </button>
+        <div className="flex items-center gap-2 self-start md:self-auto">
+          <UserPersonalization
+            userProfile={userProfile}
+            settings={settings}
+            onProfileChange={onProfileChange}
+            onSettingsChange={onSettingsChange}
+          />
+          <button
+            onClick={onTriggerEmergency}
+            className="maru-btn-secondary border-red-200 text-[var(--maru-danger)] hover:bg-red-50"
+          >
+            <AlertTriangle size={16} />
+            <span>Ayuda y emergencias</span>
+          </button>
+        </div>
       </div>
 
       <div className="maru-panel">
@@ -97,34 +115,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             <span>Conversar</span><Send size={16} />
           </button>
         </form>
-      </div>
-
-      <div className="relative grid grid-cols-2 lg:grid-cols-4 gap-px overflow-hidden rounded-[var(--maru-radius-lg)] border border-[var(--maru-border-soft)] bg-[var(--maru-border-soft)]">
-        {[
-          { icon: Users, label: 'Agentes disponibles', value: '7', accent: 'var(--maru-primary)' },
-          { icon: HardDrive, label: 'Memoria local', value: '2.4 GB', accent: 'var(--maru-primary)' },
-          { icon: Zap, label: 'Latencia Local', value: '120 ms', accent: 'var(--maru-amber)' },
-          { icon: Clock, label: 'Con MARU OS', value: '42 Días', accent: '#5A8F6B' }
-        ].map((m) => {
-          const Icon = m.icon;
-          return (
-            <div
-              key={m.label}
-              className="bg-[var(--maru-surface)] p-4 flex items-center gap-3"
-            >
-              <div
-                className="p-2.5 rounded-[10px]"
-                style={{ backgroundColor: `${m.accent}15`, color: m.accent }}
-              >
-                <Icon size={18} />
-              </div>
-              <div>
-                <div className="text-lg font-bold font-mono text-[var(--maru-text)]">{m.value}</div>
-                <div className="text-[11px] text-[var(--maru-text-muted)]">{m.label}</div>
-              </div>
-            </div>
-          );
-        })}
       </div>
 
       <FraseDelDia />

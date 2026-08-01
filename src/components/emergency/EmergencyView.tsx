@@ -1,8 +1,22 @@
 import React, { useMemo, useState } from 'react';
-import { ShieldAlert, PhoneCall, Navigation, MapPin, Waves, Mountain } from 'lucide-react';
+import { ShieldAlert, PhoneCall, Navigation, MapPin, Waves, Mountain, MessageCircle, UserPlus, Link2 } from 'lucide-react';
 import { ChatView } from '../chat/ChatView';
 import { UserProfile, HealthProfile, LocationProfile } from '../../types';
 import { PERU_SEED_DATA } from '../../data/seedPeru';
+import { StorageService } from '../../services/storageService';
+import { syncEmergencyContact } from '../../services/knowledgeSync';
+
+function digitsOnly(phone: string) {
+  return phone.replace(/[^\d]/g, '');
+}
+
+function waLink(phone: string, text: string) {
+  const n = digitsOnly(phone);
+  if (!n) return null;
+  // Perú: si son 9 dígitos, anteponer 51
+  const full = n.length === 9 ? `51${n}` : n;
+  return `https://wa.me/${full}?text=${encodeURIComponent(text)}`;
+}
 
 interface EmergencyViewProps {
   userProfile: UserProfile;
@@ -60,14 +74,25 @@ const PROTOCOLS: Record<EmergencyType, { title: string; steps: string[] }> = {
   }
 };
 
-export const EmergencyView: React.FC<EmergencyViewProps> = ({ userProfile, healthProfile, locationProfile }) => {
+export const EmergencyView: React.FC<EmergencyViewProps> = ({ userProfile, healthProfile: initialHealth, locationProfile }) => {
   const [isAlertActive, setIsAlertActive] = useState(false);
   const [emergencyType, setEmergencyType] = useState<EmergencyType>('huaico');
+  const [healthProfile, setHealthProfile] = useState(initialHealth);
+  const [contactPhone, setContactPhone] = useState(() => {
+    const raw = initialHealth.emergencyContact || '';
+    const m = raw.match(/(\+?\d[\d\s-]{6,})/);
+    return (initialHealth.emergencyWhatsApp || m?.[1] || '').trim();
+  });
+  const [contactName, setContactName] = useState(() => {
+    const raw = initialHealth.emergencyContact || '';
+    return raw.split(/[-–]/)[0]?.trim() || 'Contacto de emergencia';
+  });
 
   const city = locationProfile.city || 'Chosica';
   const huaico = PERU_SEED_DATA.huaicoMap[city] || PERU_SEED_DATA.huaicoMap['Chosica'];
   const safeZones = PERU_SEED_DATA.safeZones[city] || PERU_SEED_DATA.safeZones['Chosica'] || [];
   const protocol = PROTOCOLS[emergencyType];
+  const sosText = `🚨 SOS MARU OS — ${userProfile.name || 'Usuario'} en ${city}. Tipo: ${emergencyType}. Necesito ayuda.`;
 
   const contextNumbers = useMemo(() => {
     if (emergencyType === 'medico') return EMERGENCY_NUMBERS.filter((n) => ['106', '113'].includes(n.number));
@@ -146,20 +171,101 @@ export const EmergencyView: React.FC<EmergencyViewProps> = ({ userProfile, healt
 
         <div className="space-y-2">
           <div className="text-xs font-bold uppercase tracking-wider text-white/50">Llamadas rápidas</div>
-          <div className="grid grid-cols-2 gap-2">
-            {(isAlertActive ? contextNumbers : EMERGENCY_NUMBERS).map((n) => (
-              <a
-                key={n.number}
-                href={`tel:${n.number.replace(/[^\d+]/g, '')}`}
-                className="flex flex-col items-start p-3 rounded-xl bg-[#2C3E50] hover:bg-[#34495E] transition-colors border border-white/10 gap-1"
-              >
-                <span className={`flex items-center gap-2 font-bold ${n.color}`}>
-                  <PhoneCall size={16} /> {n.number}
-                </span>
-                <span className="text-xs text-white/80">{n.label}</span>
-                <span className="text-[10px] text-white/40">{n.hint}</span>
-              </a>
-            ))}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            {(isAlertActive ? contextNumbers : EMERGENCY_NUMBERS).map((n) => {
+              const tel = n.number.replace(/[^\d+]/g, '');
+              // WhatsApp solo si el número parece de contacto real (no líneas cortas 105/116…)
+              const wa =
+                digitsOnly(n.number).length >= 7
+                  ? waLink(n.number, `Hola, necesito asistencia de ${n.label}. Estoy en ${city}.`)
+                  : null;
+              return (
+                <div
+                  key={n.number}
+                  className="flex flex-col p-3 rounded-xl bg-[#2C3E50] border border-white/10 gap-2"
+                >
+                  <div>
+                    <span className={`flex items-center gap-2 font-bold ${n.color}`}>
+                      <PhoneCall size={16} /> {n.number}
+                    </span>
+                    <span className="text-xs text-white/80 block mt-0.5">{n.label}</span>
+                    <span className="text-[10px] text-white/40">{n.hint}</span>
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    <a
+                      href={`tel:${tel}`}
+                      className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold"
+                    >
+                      <PhoneCall size={12} /> Llamar
+                    </a>
+                    {wa && (
+                      <a
+                        href={wa}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#25D366]/20 hover:bg-[#25D366]/35 text-[#25D366] text-[11px] font-bold"
+                      >
+                        <MessageCircle size={12} /> WhatsApp
+                      </a>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="space-y-2 p-3 rounded-xl border border-white/10 bg-white/5">
+          <div className="text-xs font-bold uppercase tracking-wider text-white/50 flex items-center gap-2">
+            <UserPlus size={14} /> Contacto personal rápido
+          </div>
+          <input
+            value={contactName}
+            onChange={(e) => setContactName(e.target.value)}
+            placeholder="Nombre del contacto"
+            className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white placeholder:text-white/30"
+          />
+          <input
+            value={contactPhone}
+            onChange={(e) => setContactPhone(e.target.value)}
+            placeholder="Teléfono / WhatsApp (+51…)"
+            className="w-full px-3 py-2 rounded-lg bg-black/30 border border-white/10 text-sm text-white placeholder:text-white/30 font-mono"
+          />
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                const next = {
+                  ...healthProfile,
+                  emergencyContact: `${contactName} - ${contactPhone}`,
+                  emergencyWhatsApp: digitsOnly(contactPhone)
+                };
+                setHealthProfile(next);
+                StorageService.saveHealth(next);
+                syncEmergencyContact(`${contactName} - ${contactPhone}`);
+              }}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-[11px] font-bold"
+            >
+              <Link2 size={12} /> Guardar vínculo
+            </button>
+            {digitsOnly(contactPhone) && (
+              <>
+                <a
+                  href={`tel:${digitsOnly(contactPhone)}`}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-sky-500/20 text-sky-300 text-[11px] font-bold"
+                >
+                  <PhoneCall size={12} /> Llamar contacto
+                </a>
+                <a
+                  href={waLink(contactPhone, sosText) || '#'}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366]/20 text-[#25D366] text-[11px] font-bold"
+                >
+                  <MessageCircle size={12} /> WhatsApp SOS
+                </a>
+              </>
+            )}
           </div>
         </div>
 
